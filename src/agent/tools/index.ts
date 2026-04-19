@@ -1,13 +1,13 @@
+import { sleep } from '@/agent/tools/sleep';
 import type { Session } from '@/server/types';
 import { browser } from '@/agent/tools/browser';
-import { checkShell } from '@/agent/tools/check-shell';
 import { editFile } from '@/agent/tools/edit-file';
 import { getRules } from '@/agent/tools/get-rules';
 import { readFile } from '@/agent/tools/read-file';
 import { runShell } from '@/agent/tools/run-shell';
 import { seeImage } from '@/agent/tools/see-image';
-import { sleep } from '@/agent/tools/sleep';
 import { webFetch } from '@/agent/tools/web-fetch';
+import { checkShell } from '@/agent/tools/check-shell';
 import { fileSearch } from '@/agent/tools/file-search';
 
 export class AgentTools {

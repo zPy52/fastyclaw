@@ -54,12 +54,14 @@ export class SubmoduleFastyclawServerRoutes {
       return;
     }
     session.stream.attach(res);
-    req.on('close', () => {
+    const abortOnDisconnect = () => {
       if (!session.stream.isClosed()) {
         session.abort.abort();
         session.stream.end();
       }
-    });
+    };
+    req.on('aborted', abortOnDisconnect);
+    res.on('close', abortOnDisconnect);
     await AgentRuntime.loop.run(session, text);
   }
 
