@@ -16,6 +16,8 @@ const DEFAULT_TELEGRAM: TelegramConfig = {
   groupTrigger: 'mention',
 };
 
+export type AppConfigPatch = Partial<Omit<AppConfig, 'telegram'>> & { telegram?: Partial<TelegramConfig> };
+
 export class Const {
   public static readonly DEFAULT_PORT: number = 5177;
   public static readonly host: string = '127.0.0.1';
@@ -77,7 +79,7 @@ export class AppConfigStore {
     return { ...this.config, telegram: { ...this.config.telegram } };
   }
 
-  public patch(patch: Partial<AppConfig> & { telegram?: Partial<TelegramConfig> }): AppConfig {
+  public patch(patch: AppConfigPatch): AppConfig {
     if (typeof patch.model === 'string') this.config.model = patch.model;
     if (patch.provider === 'openai') this.config.provider = patch.provider;
     if (typeof patch.cwd === 'string') this.config.cwd = path.resolve(patch.cwd);

@@ -1,5 +1,6 @@
 import { createParser, type EventSourceMessage } from 'eventsource-parser';
 import type { AppConfig, Provider, ServerEvent, FastyclawClientOptions } from '@/types';
+import { FastyclawClientTelegram } from '@/telegram';
 
 const DEFAULT_BASE_URL = 'http://localhost:5177';
 
@@ -15,9 +16,11 @@ export interface MessageStream extends AsyncIterable<ServerEvent> {
 export class FastyclawClient {
   private readonly baseUrl: string;
   private lastThreadId: string | null = null;
+  public readonly telegram: FastyclawClientTelegram;
 
   public constructor(opts?: FastyclawClientOptions) {
     this.baseUrl = opts?.baseUrl ?? DEFAULT_BASE_URL;
+    this.telegram = new FastyclawClientTelegram(this.baseUrl);
   }
 
   /** The thread id most recently created or used by this client. */

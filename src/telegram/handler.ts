@@ -64,7 +64,7 @@ export class SubmoduleFastyclawTelegramHandler {
       const name = `${first} ${last}`.trim();
       return name || chat.username || String(chat.id);
     }
-    return chat.title ?? String(chat.id);
+    return chat.title || String(chat.id);
   }
 
   private extractUserText(ctx: Context): string {

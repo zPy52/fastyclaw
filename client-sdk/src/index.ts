@@ -1,2 +1,13 @@
 export { FastyclawClient } from '@/client';
-export type { ServerEvent, Provider, AppConfig, FastyclawClientOptions } from '@/types';
+export { FastyclawClientTelegram } from '@/telegram';
+export type {
+  ServerEvent,
+  Provider,
+  AppConfig,
+  FastyclawClientOptions,
+  TelegramConfig,
+  TelegramGroupTrigger,
+  TelegramStatus,
+  TelegramChatListItem,
+  ChatKind,
+} from '@/types';
