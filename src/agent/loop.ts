@@ -4,7 +4,6 @@ import { AgentTools } from '@/agent/tools/index';
 import { SubmoduleAgentRuntimePrompt } from '@/agent/prompt';
 import { SubmoduleAgentRuntimeProvider } from '@/agent/provider';
 
-
 export class SubmoduleAgentRuntimeLoop {
   public constructor(
     private readonly prompt: SubmoduleAgentRuntimePrompt,

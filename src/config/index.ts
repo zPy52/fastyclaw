@@ -9,4 +9,9 @@ export class Const {
   public static readonly defaultProvider: 'openai' = 'openai';
   public static readonly skillsDir: string = path.join(os.homedir(), '.agents', 'skills');
   public static readonly embeddingModel: string = 'text-embedding-3-small';
+  public static readonly browserProfileDir: string =
+    process.env.FASTYCLAW_BROWSER_PROFILE ?? path.join(os.homedir(), '.fastyclaw', 'browser-profile');
+  public static readonly browserCdpUrl: string | undefined = process.env.FASTYCLAW_BROWSER_CDP_URL;
+  public static readonly browserChannel: string | undefined = process.env.FASTYCLAW_BROWSER_CHANNEL ?? 'chrome';
+  public static readonly browserHeadless: boolean = process.env.FASTYCLAW_BROWSER_HEADLESS === 'true';
 }

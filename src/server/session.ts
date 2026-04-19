@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { Const } from '@/config/index';
-import { closeBrowser } from '@/agent/tools/browser';
+import { closeBrowserSession } from '@/agent/sessions/browser';
+import { closeTerminal } from '@/agent/sessions/terminal';
 import { SubmoduleFastyclawServerStream } from '@/server/stream';
 import type { Session, SessionConfig } from '@/server/types';
 
@@ -31,7 +32,8 @@ export class SubmoduleFastyclawServerSession {
           // ignore
         }
         stream.end();
-        void closeBrowser(session);
+        closeTerminal(session);
+        void closeBrowserSession(session);
       },
     };
 

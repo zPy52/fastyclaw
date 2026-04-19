@@ -1,43 +1,41 @@
-import { tool } from 'ai';
-import { execa } from 'execa';
 import { z } from 'zod';
+import { tool } from 'ai';
 import type { Session } from '@/server/types';
+import { getTerminal } from '@/agent/sessions/terminal';
+
+const INITIAL_WAIT_MS = 2_000;
 
 export function runShell(session: Session) {
   return tool({
-    description: 'Execute a shell command in the session cwd. Streams stdout/stderr as text deltas. Returns exit code and captured output.',
+    description:
+      'Run a command in the persistent shell session. State (env vars, cwd, shell functions) is preserved across calls. The command runs in the background; if it does not finish within a short initial window, this returns with status="running" — use `sleep` to wait and `check_shell` to inspect the transcript.',
     inputSchema: z.object({
-      command: z.string(),
-      cwd: z.string().optional(),
-      timeoutMs: z.number().int().min(1).max(600_000).optional(),
+      command: z.string().describe('Shell command to execute. Runs in the same bash session as previous calls.'),
     }),
-    execute: async ({ command, cwd, timeoutMs }) => {
-      const child = execa(command, {
-        shell: true,
-        cwd: cwd ?? session.config.cwd,
-        timeout: timeoutMs,
-        reject: false,
-        all: false,
-        cancelSignal: session.abort.signal,
-      });
-      const stdoutChunks: string[] = [];
-      const stderrChunks: string[] = [];
-      child.stdout?.on('data', (chunk: Buffer) => {
-        const delta = chunk.toString('utf8');
-        stdoutChunks.push(delta);
-        session.stream.write({ type: 'text-delta', delta });
-      });
-      child.stderr?.on('data', (chunk: Buffer) => {
-        const delta = chunk.toString('utf8');
-        stderrChunks.push(delta);
-        session.stream.write({ type: 'text-delta', delta });
-      });
-      const result = await child;
+    execute: async ({ command }) => {
+      const term = getTerminal(session);
+      const pending = term.start(command);
+      session.stream.write({ type: 'text-delta', delta: `$ ${command}\n` });
+
+      const finished = await term.wait(INITIAL_WAIT_MS);
+      if (pending.output) {
+        session.stream.write({ type: 'text-delta', delta: pending.output });
+      }
+
+      if (finished && pending.done) {
+        return {
+          status: 'completed' as const,
+          commandId: pending.id,
+          exitCode: pending.exitCode,
+          output: pending.output,
+        };
+      }
       return {
-        exitCode: result.exitCode ?? null,
-        stdout: stdoutChunks.join(''),
-        stderr: stderrChunks.join(''),
-        timedOut: result.timedOut ?? false,
+        status: 'running' as const,
+        commandId: pending.id,
+        partialOutput: pending.output,
+        elapsedMs: Date.now() - pending.startedAt,
+        hint: 'Command is still running. Use the `sleep` tool to wait, then `check_shell` to read more output.',
       };
     },
   });
