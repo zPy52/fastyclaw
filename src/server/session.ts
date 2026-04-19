@@ -1,9 +1,9 @@
 import crypto from 'node:crypto';
 import { Const } from '@/config/index';
-import { closeBrowserSession } from '@/agent/sessions/browser';
 import { closeTerminal } from '@/agent/sessions/terminal';
-import { SubmoduleFastyclawServerStream } from '@/server/stream';
 import type { Session, SessionConfig } from '@/server/types';
+import { closeBrowserSession } from '@/agent/sessions/browser';
+import { SubmoduleFastyclawServerStream } from '@/server/stream';
 
 export class SubmoduleFastyclawServerSession {
   private sessions = new Map<string, Session>();

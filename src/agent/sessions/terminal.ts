@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
-import { spawn, type ChildProcess } from 'node:child_process';
 import type { Session } from '@/server/types';
+import { spawn, type ChildProcess } from 'node:child_process';
 
 const MAX_TRANSCRIPT_BYTES = 256_000;
 

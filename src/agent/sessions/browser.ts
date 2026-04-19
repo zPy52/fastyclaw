@@ -1,8 +1,8 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import type { Browser, BrowserContext, Page } from 'playwright';
 import { Const } from '@/config/index';
 import type { Session } from '@/server/types';
+import type { Browser, BrowserContext, Page } from 'playwright';
 
 export interface BrowserSessionOptions {
   cdpUrl?: string;

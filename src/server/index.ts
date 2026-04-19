@@ -1,6 +1,6 @@
 import express from 'express';
-import { AgentSkills } from '@/skills/index';
 import { Const } from '@/config/index';
+import { AgentSkills } from '@/skills/index';
 import { SubmoduleFastyclawServerRoutes } from '@/server/routes';
 import { SubmoduleFastyclawServerSession } from '@/server/session';
 

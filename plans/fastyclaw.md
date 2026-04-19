@@ -128,7 +128,6 @@ Each tool lives in its own file and exports a `tool({...})` factory that takes `
 
 | Name              | Input (zod)                                                   | Behavior                                                                     |
 |-------------------|---------------------------------------------------------------|------------------------------------------------------------------------------|
-| `semantic_search` | `{ query: string, path?: string, k?: number }`                | Embeds query via OpenAI `text-embedding-3-small`; ranks files under `cwd`. In-memory index per session, lazily built.  |
 | `file_search`     | `{ pattern: string }`                                         | `glob(pattern, { cwd: session.cwd })`.                                       |
 | `web_fetch`       | `{ url: string, prompt?: string }`                            | `fetch(url)` → HTML→text; if `prompt`, summarize via same OpenAI model.      |
 | `get_rules`       | `{}`                                                          | Reads nearest `AGENTS.md` walking up from `session.cwd`, concatenates.       |

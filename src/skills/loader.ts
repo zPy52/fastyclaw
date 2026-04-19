@@ -1,6 +1,6 @@
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import matter from 'gray-matter';
+import fs from 'node:fs/promises';
 import { Const } from '@/config/index';
 import type { Skill } from '@/skills/types';
 import type { SubmoduleAgentSkillsRegistry } from '@/skills/registry';

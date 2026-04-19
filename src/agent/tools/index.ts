@@ -9,12 +9,10 @@ import { seeImage } from '@/agent/tools/see-image';
 import { sleep } from '@/agent/tools/sleep';
 import { webFetch } from '@/agent/tools/web-fetch';
 import { fileSearch } from '@/agent/tools/file-search';
-import { semanticSearch } from '@/agent/tools/semantic-search';
 
 export class AgentTools {
   public static all(session: Session) {
     return {
-      semantic_search: semanticSearch(session),
       file_search: fileSearch(session),
       web_fetch: webFetch(session),
       get_rules: getRules(session),
