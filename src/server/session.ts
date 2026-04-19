@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
-import { Const } from '../config/index.js';
-import { closeBrowser } from '../agent/tools/browser.js';
-import { SubmoduleFastyclawServerStream } from './stream.js';
-import type { Session, SessionConfig } from './types.js';
+import { Const } from '@/config/index';
+import { closeBrowser } from '@/agent/tools/browser';
+import { SubmoduleFastyclawServerStream } from '@/server/stream';
+import type { Session, SessionConfig } from '@/server/types';
 
 export class SubmoduleFastyclawServerSession {
   private sessions = new Map<string, Session>();

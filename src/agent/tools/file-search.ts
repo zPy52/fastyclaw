@@ -1,7 +1,7 @@
 import { tool } from 'ai';
 import { glob } from 'glob';
 import { z } from 'zod';
-import type { Session } from '../../server/types.js';
+import type { Session } from '@/server/types';
 
 export function fileSearch(session: Session) {
   return tool({

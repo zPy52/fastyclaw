@@ -1,9 +1,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import matter from 'gray-matter';
-import { Const } from '../config/index.js';
-import type { SubmoduleAgentSkillsRegistry } from './registry.js';
-import type { Skill } from './types.js';
+import { Const } from '@/config/index';
+import type { Skill } from '@/skills/types';
+import type { SubmoduleAgentSkillsRegistry } from '@/skills/registry';
 
 export class SubmoduleAgentSkillsLoader {
   public constructor(private readonly registry: SubmoduleAgentSkillsRegistry) {}

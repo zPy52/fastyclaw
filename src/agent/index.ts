@@ -1,6 +1,6 @@
-import { SubmoduleAgentRuntimeLoop } from './loop.js';
-import { SubmoduleAgentRuntimePrompt } from './prompt.js';
-import { SubmoduleAgentRuntimeProvider } from './provider.js';
+import { SubmoduleAgentRuntimeLoop } from '@/agent/loop';
+import { SubmoduleAgentRuntimePrompt } from '@/agent/prompt';
+import { SubmoduleAgentRuntimeProvider } from '@/agent/provider';
 
 export class AgentRuntime {
   public static readonly prompt = new SubmoduleAgentRuntimePrompt();

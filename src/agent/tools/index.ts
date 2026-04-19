@@ -1,12 +1,12 @@
-import type { Session } from '../../server/types.js';
-import { browser } from './browser.js';
-import { editFile } from './edit-file.js';
-import { fileSearch } from './file-search.js';
-import { getRules } from './get-rules.js';
-import { readFile } from './read-file.js';
-import { runShell } from './run-shell.js';
-import { semanticSearch } from './semantic-search.js';
-import { webFetch } from './web-fetch.js';
+import type { Session } from '@/server/types';
+import { browser } from '@/agent/tools/browser';
+import { editFile } from '@/agent/tools/edit-file';
+import { fileSearch } from '@/agent/tools/file-search';
+import { getRules } from '@/agent/tools/get-rules';
+import { readFile } from '@/agent/tools/read-file';
+import { runShell } from '@/agent/tools/run-shell';
+import { semanticSearch } from '@/agent/tools/semantic-search';
+import { webFetch } from '@/agent/tools/web-fetch';
 
 export class AgentTools {
   public static all(session: Session) {

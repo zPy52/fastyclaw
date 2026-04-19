@@ -1,5 +1,5 @@
-import { AgentSkills } from '../skills/index.js';
-import type { Session } from '../server/types.js';
+import { AgentSkills } from '@/skills/index';
+import type { Session } from '@/server/types';
 
 export class SubmoduleAgentRuntimePrompt {
   public build(session: Session): string {

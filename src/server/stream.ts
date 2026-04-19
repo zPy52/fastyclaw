@@ -1,5 +1,5 @@
 import type { Response } from 'express';
-import type { ServerEvent } from './types.js';
+import type { ServerEvent } from '@/server/types';
 
 export class SubmoduleFastyclawServerStream {
   private res: Response | null = null;

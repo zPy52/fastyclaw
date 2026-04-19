@@ -1,7 +1,7 @@
 import { createParser, type EventSourceMessage } from 'eventsource-parser';
-import { Const } from '../config/index.js';
-import type { Provider, ServerEvent } from '../server/types.js';
-import type { FastyclawClientOptions } from './types.js';
+import { Const } from '@/config/index';
+import type { Provider, ServerEvent } from '@/server/types';
+import type { FastyclawClientOptions } from '@/client/types';
 
 export class FastyclawClient {
   private readonly baseUrl: string;

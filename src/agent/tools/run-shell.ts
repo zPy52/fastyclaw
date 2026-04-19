@@ -1,7 +1,7 @@
 import { tool } from 'ai';
 import { execa } from 'execa';
 import { z } from 'zod';
-import type { Session } from '../../server/types.js';
+import type { Session } from '@/server/types';
 
 export function runShell(session: Session) {
   return tool({

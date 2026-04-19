@@ -1,8 +1,9 @@
 import { stepCountIs, streamText } from 'ai';
-import type { Session } from '../server/types.js';
-import { AgentTools } from './tools/index.js';
-import { SubmoduleAgentRuntimePrompt } from './prompt.js';
-import { SubmoduleAgentRuntimeProvider } from './provider.js';
+import type { Session } from '@/server/types';
+import { AgentTools } from '@/agent/tools/index';
+import { SubmoduleAgentRuntimePrompt } from '@/agent/prompt';
+import { SubmoduleAgentRuntimeProvider } from '@/agent/provider';
+
 
 export class SubmoduleAgentRuntimeLoop {
   public constructor(

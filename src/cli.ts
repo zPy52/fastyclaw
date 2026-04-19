@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { FastyclawServer } from './server/index.js';
+import { FastyclawServer } from '@/server/index';
 
 const [, , cmd] = process.argv;
 

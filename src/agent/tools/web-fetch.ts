@@ -1,7 +1,7 @@
 import { openai } from '@ai-sdk/openai';
 import { generateText, tool } from 'ai';
 import { z } from 'zod';
-import type { Session } from '../../server/types.js';
+import type { Session } from '@/server/types';
 
 function htmlToText(html: string): string {
   return html

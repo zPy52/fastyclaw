@@ -1,8 +1,8 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { tool } from 'ai';
 import { z } from 'zod';
-import type { Session } from '../../server/types.js';
+import { tool } from 'ai';
+import path from 'node:path';
+import fs from 'node:fs/promises';
+import type { Session } from '@/server/types';
 
 export function editFile(session: Session) {
   return tool({

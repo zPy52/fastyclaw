@@ -4,8 +4,8 @@ import { openai } from '@ai-sdk/openai';
 import { embed, embedMany, tool } from 'ai';
 import { glob } from 'glob';
 import { z } from 'zod';
-import { Const } from '../../config/index.js';
-import type { Session } from '../../server/types.js';
+import { Const } from '@/config/index';
+import type { Session } from '@/server/types';
 
 interface IndexEntry {
   file: string;

@@ -1,4 +1,4 @@
-import type { Skill } from './types.js';
+import type { Skill } from '@/skills/types';
 
 export class SubmoduleAgentSkillsRegistry {
   private skills = new Map<string, Skill>();

@@ -1,8 +1,8 @@
 import express from 'express';
-import { AgentSkills } from '../skills/index.js';
-import { Const } from '../config/index.js';
-import { SubmoduleFastyclawServerRoutes } from './routes.js';
-import { SubmoduleFastyclawServerSession } from './session.js';
+import { AgentSkills } from '@/skills/index';
+import { Const } from '@/config/index';
+import { SubmoduleFastyclawServerRoutes } from '@/server/routes';
+import { SubmoduleFastyclawServerSession } from '@/server/session';
 
 export class FastyclawServer {
   public static readonly sessions = new SubmoduleFastyclawServerSession();

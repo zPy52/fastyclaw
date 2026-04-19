@@ -1,5 +1,5 @@
 import type { ModelMessage } from 'ai';
-import type { SubmoduleFastyclawServerStream } from './stream.js';
+import type { SubmoduleFastyclawServerStream } from '@/server/stream';
 
 export type ServerEvent =
   | { type: 'text-delta'; delta: string }

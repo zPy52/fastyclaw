@@ -1,8 +1,8 @@
 import path from 'node:path';
 import express, { type Express, type Request, type Response } from 'express';
-import { AgentRuntime } from '../agent/index.js';
-import type { Provider } from './types.js';
-import type { SubmoduleFastyclawServerSession } from './session.js';
+import { AgentRuntime } from '@/agent/index';
+import type { Provider } from '@/server/types';
+import type { SubmoduleFastyclawServerSession } from '@/server/session';
 
 export class SubmoduleFastyclawServerRoutes {
   public constructor(private readonly sessions: SubmoduleFastyclawServerSession) {}

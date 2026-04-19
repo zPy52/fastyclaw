@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { tool } from 'ai';
 import { z } from 'zod';
-import type { Session } from '../../server/types.js';
+import type { Session } from '@/server/types';
 
 export function readFile(session: Session) {
   return tool({

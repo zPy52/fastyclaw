@@ -1,6 +1,6 @@
-import { SubmoduleAgentSkillsLoader } from './loader.js';
-import { SubmoduleAgentSkillsPrompt } from './prompt.js';
-import { SubmoduleAgentSkillsRegistry } from './registry.js';
+import { SubmoduleAgentSkillsLoader } from '@/skills/loader';
+import { SubmoduleAgentSkillsPrompt } from '@/skills/prompt';
+import { SubmoduleAgentSkillsRegistry } from '@/skills/registry';
 
 export class AgentSkills {
   public static readonly registry = new SubmoduleAgentSkillsRegistry();

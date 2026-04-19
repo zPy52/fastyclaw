@@ -12,10 +12,10 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc-alias -f -fe .js",
     "prepublishOnly": "npm run build",
     "start": "node dist/cli.js start",
-    "dev": "tsc --watch"
+    "dev": "node scripts/dev.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.0",
@@ -31,6 +31,7 @@
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^22.0.0",
+    "tsc-alias": "^1.8.16",
     "typescript": "^5.6.0"
   },
   "engines": {

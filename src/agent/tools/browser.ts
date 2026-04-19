@@ -1,8 +1,8 @@
-import path from 'node:path';
-import { tool } from 'ai';
 import { z } from 'zod';
+import { tool } from 'ai';
+import path from 'node:path';
 import type { Browser, Page } from 'playwright';
-import type { Session } from '../../server/types.js';
+import type { Session } from '@/server/types';
 
 const handles = new WeakMap<Session, { browser: Browser; page: Page }>();
 

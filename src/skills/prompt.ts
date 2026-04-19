@@ -1,4 +1,4 @@
-import type { SubmoduleAgentSkillsRegistry } from './registry.js';
+import type { SubmoduleAgentSkillsRegistry } from '@/skills/registry';
 
 export class SubmoduleAgentSkillsPrompt {
   public constructor(private readonly registry: SubmoduleAgentSkillsRegistry) {}
