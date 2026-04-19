@@ -11,10 +11,20 @@ export type ServerEvent =
 
 export type Provider = 'openai';
 
+export type TelegramGroupTrigger = 'mention' | 'all';
+
+export interface TelegramConfig {
+  token: string | null;
+  enabled: boolean;
+  allowedUserIds: number[];
+  groupTrigger: TelegramGroupTrigger;
+}
+
 export interface AppConfig {
   model: string;
   provider: Provider;
   cwd: string;
+  telegram: TelegramConfig;
 }
 
 export interface Thread {
