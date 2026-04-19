@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import type { Session } from '@/server/types';
+import type { Run } from '@/server/types';
 import { spawn, type ChildProcess } from 'node:child_process';
 
 const MAX_TRANSCRIPT_BYTES = 256_000;
@@ -131,20 +131,20 @@ export class TerminalSession {
   }
 }
 
-const handles = new WeakMap<Session, TerminalSession>();
+const handles = new Map<string, TerminalSession>();
 
-export function getTerminal(session: Session): TerminalSession {
-  let term = handles.get(session);
+export function getTerminal(run: Run): TerminalSession {
+  let term = handles.get(run.threadId);
   if (!term || term.isClosed) {
-    term = new TerminalSession(session.config.cwd);
-    handles.set(session, term);
+    term = new TerminalSession(run.config.cwd);
+    handles.set(run.threadId, term);
   }
   return term;
 }
 
-export function closeTerminal(session: Session): void {
-  const term = handles.get(session);
+export function closeTerminal(threadId: string): void {
+  const term = handles.get(threadId);
   if (!term) return;
-  handles.delete(session);
+  handles.delete(threadId);
   term.close();
 }

@@ -1,21 +1,50 @@
 import { createParser, type EventSourceMessage } from 'eventsource-parser';
-import { Const } from '@/config/index';
-import type { Provider, ServerEvent } from '@/server/types';
-import type { FastyclawClientOptions } from '@/client/types';
+import type { AppConfig, Provider, ServerEvent, FastyclawClientOptions } from '@/types';
+
+const DEFAULT_BASE_URL = 'http://localhost:5177';
+
+export interface SendMessageOptions {
+  threadId?: string;
+}
+
+export interface MessageStream extends AsyncIterable<ServerEvent> {
+  /** Resolves with the threadId used for this message once the server announces it. */
+  readonly threadId: Promise<string>;
+}
 
 export class FastyclawClient {
   private readonly baseUrl: string;
-  private sessionId: string | null = null;
+  private lastThreadId: string | null = null;
 
   public constructor(opts?: FastyclawClientOptions) {
-    this.baseUrl = opts?.baseUrl ?? Const.baseUrl;
+    this.baseUrl = opts?.baseUrl ?? DEFAULT_BASE_URL;
   }
 
-  public async connect(): Promise<void> {
-    const res = await fetch(`${this.baseUrl}/sessions`, { method: 'POST' });
-    if (!res.ok) throw new Error(`connect failed: ${res.status}`);
-    const body = (await res.json()) as { sessionId: string };
-    this.sessionId = body.sessionId;
+  /** The thread id most recently created or used by this client. */
+  public get threadId(): string | null {
+    return this.lastThreadId;
+  }
+
+  /** Explicitly create a new empty thread and return its id. */
+  public async createThread(): Promise<string> {
+    const res = await fetch(`${this.baseUrl}/threads`, { method: 'POST' });
+    if (!res.ok) throw new Error(`createThread failed: ${res.status}`);
+    const body = (await res.json()) as { threadId: string };
+    this.lastThreadId = body.threadId;
+    return body.threadId;
+  }
+
+  public async deleteThread(threadId?: string): Promise<void> {
+    const id = threadId ?? this.lastThreadId;
+    if (!id) return;
+    if (id === this.lastThreadId) this.lastThreadId = null;
+    await fetch(`${this.baseUrl}/threads/${id}`, { method: 'DELETE' });
+  }
+
+  public async getConfig(): Promise<AppConfig> {
+    const res = await fetch(`${this.baseUrl}/config`);
+    if (!res.ok) throw new Error(`getConfig failed: ${res.status}`);
+    return (await res.json()) as AppConfig;
   }
 
   public async setModel(model: string): Promise<void> {
@@ -30,10 +59,27 @@ export class FastyclawClient {
     await this.updateConfig({ cwd });
   }
 
-  public sendMessage(text: string): AsyncIterable<ServerEvent> {
-    const id = this.requireSession();
+  /**
+   * Send a message to a thread. If no threadId is provided (and the client
+   * has no current thread), the server creates one automatically and emits a
+   * `thread` event with the new id.
+   */
+  public sendMessage(text: string, opts?: SendMessageOptions): MessageStream {
     const baseUrl = this.baseUrl;
-    return {
+    const requestedThreadId = opts?.threadId ?? this.lastThreadId ?? undefined;
+    const client = this;
+
+    let resolveThreadId: (id: string) => void = () => {};
+    let rejectThreadId: (err: unknown) => void = () => {};
+    const threadIdPromise = new Promise<string>((resolve, reject) => {
+      resolveThreadId = resolve;
+      rejectThreadId = reject;
+    });
+    // Prevent unhandled-rejection warnings if the caller never awaits it.
+    threadIdPromise.catch(() => {});
+
+    const iterable: AsyncIterable<ServerEvent> & { threadId: Promise<string> } = {
+      threadId: threadIdPromise,
       [Symbol.asyncIterator]() {
         const queue: ServerEvent[] = [];
         const waiters: Array<(result: IteratorResult<ServerEvent>) => void> = [];
@@ -41,6 +87,10 @@ export class FastyclawClient {
         let error: unknown = null;
 
         const push = (ev: ServerEvent) => {
+          if (ev.type === 'thread') {
+            client.lastThreadId = ev.threadId;
+            resolveThreadId(ev.threadId);
+          }
           const waiter = waiters.shift();
           if (waiter) waiter({ value: ev, done: false });
           else queue.push(ev);
@@ -66,10 +116,12 @@ export class FastyclawClient {
 
         (async () => {
           try {
-            const res = await fetch(`${baseUrl}/sessions/${id}/messages`, {
+            const body: Record<string, unknown> = { text };
+            if (requestedThreadId) body.threadId = requestedThreadId;
+            const res = await fetch(`${baseUrl}/messages`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-              body: JSON.stringify({ text }),
+              body: JSON.stringify(body),
             });
             if (!res.ok || !res.body) {
               throw new Error(`sendMessage failed: ${res.status}`);
@@ -83,6 +135,7 @@ export class FastyclawClient {
             }
           } catch (err) {
             error = err;
+            rejectThreadId(err);
           } finally {
             finish();
           }
@@ -102,27 +155,15 @@ export class FastyclawClient {
         };
       },
     };
-  }
-
-  public async close(): Promise<void> {
-    if (!this.sessionId) return;
-    const id = this.sessionId;
-    this.sessionId = null;
-    await fetch(`${this.baseUrl}/sessions/${id}`, { method: 'DELETE' });
+    return iterable;
   }
 
   private async updateConfig(patch: Record<string, unknown>): Promise<void> {
-    const id = this.requireSession();
-    const res = await fetch(`${this.baseUrl}/sessions/${id}/config`, {
+    const res = await fetch(`${this.baseUrl}/config`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),
     });
     if (!res.ok) throw new Error(`config update failed: ${res.status}`);
-  }
-
-  private requireSession(): string {
-    if (!this.sessionId) throw new Error('FastyclawClient: call connect() first');
-    return this.sessionId;
   }
 }

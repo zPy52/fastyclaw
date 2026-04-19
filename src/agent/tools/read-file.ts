@@ -2,9 +2,9 @@ import { z } from 'zod';
 import { tool } from 'ai';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import type { Session } from '@/server/types';
+import type { Run } from '@/server/types';
 
-export function readFile(session: Session) {
+export function readFile(run: Run) {
   return tool({
     description: 'Read a file from disk. Returns content with 1-based line numbers. Supports offset/limit for partial reads.',
     inputSchema: z.object({
@@ -13,7 +13,7 @@ export function readFile(session: Session) {
       limit: z.number().int().min(1).optional().describe('Max number of lines to read.'),
     }),
     execute: async ({ path: filePath, offset, limit }) => {
-      const abs = path.isAbsolute(filePath) ? filePath : path.join(session.config.cwd, filePath);
+      const abs = path.isAbsolute(filePath) ? filePath : path.join(run.config.cwd, filePath);
       const raw = await fs.readFile(abs, 'utf8');
       const lines = raw.split('\n');
       const start = Math.max(0, (offset ?? 1) - 1);

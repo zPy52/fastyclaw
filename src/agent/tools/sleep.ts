@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import { tool } from 'ai';
-import type { Session } from '@/server/types';
+import type { Run } from '@/server/types';
 import { getTerminal } from '@/agent/sessions/terminal';
 
 const MIN_SECONDS = 3;
 const MAX_SECONDS = 7_200;
 
-export function sleep(session: Session) {
+export function sleep(run: Run) {
   return tool({
     description:
       'Wait for the currently running shell command to finish, up to `seconds` seconds (3 to 7200, i.e. up to 2 hours). Most waits should be under a few minutes. Returns as soon as the command completes.',
@@ -19,7 +19,7 @@ export function sleep(session: Session) {
         .describe('Maximum seconds to wait for the active command. Returns early if it finishes.'),
     }),
     execute: async ({ seconds }) => {
-      const term = getTerminal(session);
+      const term = getTerminal(run);
       const current = term.currentCommand;
       if (!current) {
         return { status: 'idle' as const, message: 'No command is currently running.' };
@@ -39,7 +39,7 @@ export function sleep(session: Session) {
 
       if (finished && current.done) {
         if (current.output) {
-          session.stream.write({ type: 'text-delta', delta: current.output });
+          run.stream.write({ type: 'text-delta', delta: current.output });
         }
         return {
           status: 'completed' as const,

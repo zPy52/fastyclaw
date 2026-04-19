@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { tool } from 'ai';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import type { Session } from '@/server/types';
+import type { Run } from '@/server/types';
 
 const MIME: Record<string, string> = {
   png: 'image/png',
@@ -19,7 +19,7 @@ function mimeType(filePath: string): string {
   return MIME[ext] ?? 'image/png';
 }
 
-export function seeImage(session: Session) {
+export function seeImage(run: Run) {
   return tool({
     description: 'Load one or more images into context so the model can see them. Accepts absolute paths or paths relative to cwd.',
     inputSchema: z.object({
@@ -28,7 +28,7 @@ export function seeImage(session: Session) {
     execute: async ({ paths }) => {
       const results = await Promise.all(
         paths.map(async (p) => {
-          const abs = path.isAbsolute(p) ? p : path.join(session.config.cwd, p);
+          const abs = path.isAbsolute(p) ? p : path.join(run.config.cwd, p);
           const data = await fs.readFile(abs);
           return { path: abs, data: data.toString('base64'), mediaType: mimeType(abs) };
         }),

@@ -2,9 +2,9 @@ import { z } from 'zod';
 import { tool } from 'ai';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import type { Session } from '@/server/types';
+import type { Run } from '@/server/types';
 
-export function editFile(session: Session) {
+export function editFile(run: Run) {
   return tool({
     description: 'Replace `old` with `new` in a file. Errors if `old` is not unique unless `replaceAll` is true.',
     inputSchema: z.object({
@@ -14,7 +14,7 @@ export function editFile(session: Session) {
       replaceAll: z.boolean().optional(),
     }),
     execute: async ({ path: filePath, old, new: next, replaceAll }) => {
-      const abs = path.isAbsolute(filePath) ? filePath : path.join(session.config.cwd, filePath);
+      const abs = path.isAbsolute(filePath) ? filePath : path.join(run.config.cwd, filePath);
       const raw = await fs.readFile(abs, 'utf8');
       if (replaceAll) {
         const updated = raw.split(old).join(next);

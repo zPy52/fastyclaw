@@ -6,7 +6,7 @@
     "paths": {
       "@/*": ["./src/*.ts"]
     },
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM"],
     "outDir": "./dist",
     "rootDir": "./src",
     "declaration": true,
@@ -20,5 +20,5 @@
     "isolatedModules": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "client-sdk"]
+  "exclude": ["node_modules", "dist"]
 }

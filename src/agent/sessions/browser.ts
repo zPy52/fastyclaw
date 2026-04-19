@@ -1,7 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { Const } from '@/config/index';
-import type { Session } from '@/server/types';
+import type { Run } from '@/server/types';
 import type { Browser, BrowserContext, Page } from 'playwright';
 
 export interface BrowserSessionOptions {
@@ -9,7 +9,15 @@ export interface BrowserSessionOptions {
   profileDir?: string;
   headless?: boolean;
   channel?: string;
+  viewport?: { width: number; height: number };
 }
+
+const COMPUTER_USE_ARGS = [
+  '--disable-extensions',
+  '--disable-file-system',
+];
+
+const DEFAULT_VIEWPORT = { width: 1280, height: 720 };
 
 export class BrowserSession {
   private context: BrowserContext | null = null;
@@ -25,13 +33,15 @@ export class BrowserSession {
 
   private async boot(): Promise<{ context: BrowserContext; page: Page }> {
     const { chromium } = await import('playwright');
+    const viewport = this.opts.viewport ?? DEFAULT_VIEWPORT;
 
     if (this.opts.cdpUrl) {
       const browser = await chromium.connectOverCDP(this.opts.cdpUrl);
       this.cdpBrowser = browser;
-      const context = browser.contexts()[0] ?? (await browser.newContext());
+      const context = browser.contexts()[0] ?? (await browser.newContext({ viewport }));
       this.context = context;
       const page = context.pages()[0] ?? (await context.newPage());
+      try { await page.setViewportSize(viewport); } catch { /* CDP page may reject resize */ }
       return { context, page };
     }
 
@@ -40,8 +50,11 @@ export class BrowserSession {
 
     const launchOpts: Record<string, unknown> = {
       headless: this.opts.headless ?? Const.browserHeadless,
-      viewport: null,
+      viewport,
       acceptDownloads: true,
+      chromiumSandbox: true,
+      args: COMPUTER_USE_ARGS,
+      env: {},
     };
     if (this.opts.channel) launchOpts.channel = this.opts.channel;
 
@@ -78,29 +91,30 @@ export class BrowserSession {
   }
 }
 
-const handles = new WeakMap<Session, BrowserSession>();
+const handles = new Map<string, BrowserSession>();
 
-export function getBrowser(session: Session): BrowserSession {
-  let b = handles.get(session);
+export function getBrowser(run: Run): BrowserSession {
+  let b = handles.get(run.threadId);
   if (!b) {
     b = new BrowserSession({
       cdpUrl: Const.browserCdpUrl,
       profileDir: Const.browserProfileDir,
       headless: Const.browserHeadless,
       channel: Const.browserChannel,
+      viewport: Const.browserViewport,
     });
-    handles.set(session, b);
+    handles.set(run.threadId, b);
   }
   return b;
 }
 
-export async function closeBrowserSession(session: Session): Promise<void> {
-  const b = handles.get(session);
+export async function closeBrowserSession(threadId: string): Promise<void> {
+  const b = handles.get(threadId);
   if (!b) return;
-  handles.delete(session);
+  handles.delete(threadId);
   await b.close();
 }
 
-export function browserDownloadDir(session: Session): string {
-  return path.join(session.config.cwd, 'out');
+export function browserDownloadDir(run: Run): string {
+  return path.join(run.config.cwd, 'out');
 }

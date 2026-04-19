@@ -1,9 +1,9 @@
 import net from 'node:net';
 import express from 'express';
-import { Const } from '@/config/index';
+import { AppConfigStore, Const } from '@/config/index';
 import { AgentSkills } from '@/skills/index';
 import { SubmoduleFastyclawServerRoutes } from '@/server/routes';
-import { SubmoduleFastyclawServerSession } from '@/server/session';
+import { SubmoduleFastyclawServerThreads } from '@/server/threads';
 
 function findAvailablePort(port: number): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -17,10 +17,16 @@ function findAvailablePort(port: number): Promise<number> {
 }
 
 export class FastyclawServer {
-  public static readonly sessions = new SubmoduleFastyclawServerSession();
-  public static readonly routes = new SubmoduleFastyclawServerRoutes(FastyclawServer.sessions);
+  public static readonly threads = new SubmoduleFastyclawServerThreads();
+  public static config: AppConfigStore;
+  public static routes: SubmoduleFastyclawServerRoutes;
 
   public static async start(port?: number): Promise<void> {
+    FastyclawServer.config = new AppConfigStore();
+    FastyclawServer.routes = new SubmoduleFastyclawServerRoutes(
+      FastyclawServer.threads,
+      FastyclawServer.config,
+    );
     await AgentSkills.loader.load();
     const app = express();
     FastyclawServer.routes.mount(app);

@@ -3,7 +3,7 @@ import { tool } from 'ai';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import type { Page } from 'playwright';
-import type { Session } from '@/server/types';
+import type { Run } from '@/server/types';
 import { browserDownloadDir, getBrowser } from '@/agent/sessions/browser';
 
 const Action = z.enum([
@@ -26,7 +26,7 @@ async function pageInfo(page: Page) {
   return { url: page.url(), title: await page.title() };
 }
 
-export function browser(session: Session) {
+export function browser(run: Run) {
   return tool({
     description:
       'Drive a persistent browser session. Cookies, logins, and tabs persist across calls (uses your Chrome profile when configured). Actions: open, back, forward, reload, click, type, press, screenshot, extract, tabs, switch_tab, new_tab, close_tab.',
@@ -40,7 +40,7 @@ export function browser(session: Session) {
       timeoutMs: z.number().int().min(100).max(120_000).optional().describe('Per-action timeout. Default 15000.'),
     }),
     execute: async ({ action, url, selector, text, key, tabIndex, timeoutMs }) => {
-      const browserSession = getBrowser(session);
+      const browserSession = getBrowser(run);
       const timeout = timeoutMs ?? 15_000;
 
       if (action === 'tabs') {
@@ -106,7 +106,7 @@ export function browser(session: Session) {
       }
 
       if (action === 'screenshot') {
-        const outDir = browserDownloadDir(session);
+        const outDir = browserDownloadDir(run);
         await fs.mkdir(outDir, { recursive: true });
         const filename = `screenshot-${Date.now()}.png`;
         const filePath = path.join(outDir, filename);

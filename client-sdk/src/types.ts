@@ -1,6 +1,3 @@
-import type { UIMessage } from 'ai';
-import type { SubmoduleFastyclawServerStream } from '@/server/stream';
-
 export type ServerEvent =
   | { type: 'thread'; threadId: string }
   | { type: 'text-delta'; delta: string }
@@ -17,16 +14,6 @@ export interface AppConfig {
   cwd: string;
 }
 
-export interface Thread {
-  id: string;
-  messages: UIMessage[];
-}
-
-export interface Run {
-  threadId: string;
-  thread: Thread;
-  config: AppConfig;
-  abort: AbortController;
-  stream: SubmoduleFastyclawServerStream;
-  close: () => void;
+export interface FastyclawClientOptions {
+  baseUrl?: string;
 }

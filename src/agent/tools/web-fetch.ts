@@ -1,7 +1,7 @@
 import { openai } from '@ai-sdk/openai';
 import { generateText, tool } from 'ai';
 import { z } from 'zod';
-import type { Session } from '@/server/types';
+import type { Run } from '@/server/types';
 
 function htmlToText(html: string): string {
   return html
@@ -17,23 +17,23 @@ function htmlToText(html: string): string {
     .trim();
 }
 
-export function webFetch(session: Session) {
+export function webFetch(run: Run) {
   return tool({
-    description: 'Fetch a URL, convert HTML to plain text, and optionally summarize with the session model.',
+    description: 'Fetch a URL, convert HTML to plain text, and optionally summarize with the configured model.',
     inputSchema: z.object({
       url: z.string().url(),
       prompt: z.string().optional().describe('If provided, summarize the fetched text with this prompt.'),
     }),
     execute: async ({ url, prompt }) => {
-      const res = await fetch(url, { signal: session.abort.signal });
+      const res = await fetch(url, { signal: run.abort.signal });
       const body = await res.text();
       const text = htmlToText(body);
       if (!prompt) return { url, status: res.status, text: text.slice(0, 50_000) };
       const { text: summary } = await generateText({
-        model: openai(session.config.model),
+        model: openai(run.config.model),
         system: 'Summarize the provided web page content according to the user prompt. Be concise and accurate.',
         prompt: `Prompt: ${prompt}\n\n---\n\n${text.slice(0, 50_000)}`,
-        abortSignal: session.abort.signal,
+        abortSignal: run.abort.signal,
       });
       return { url, status: res.status, summary };
     },

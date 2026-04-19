@@ -1,5 +1,6 @@
-import { stepCountIs, streamText } from 'ai';
-import type { Session } from '@/server/types';
+import crypto from 'node:crypto';
+import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from 'ai';
+import type { Run } from '@/server/types';
 import { AgentTools } from '@/agent/tools/index';
 import { SubmoduleAgentRuntimePrompt } from '@/agent/prompt';
 import { SubmoduleAgentRuntimeProvider } from '@/agent/provider';
@@ -10,68 +11,77 @@ export class SubmoduleAgentRuntimeLoop {
     private readonly provider: SubmoduleAgentRuntimeProvider,
   ) {}
 
-  public async run(session: Session, userText: string): Promise<void> {
-    session.messages.push({ role: 'user', content: userText });
+  public async run(
+    run: Run,
+    userText: string,
+    onMessages: (messages: UIMessage[]) => Promise<void>,
+  ): Promise<void> {
+    const userMessage: UIMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      parts: [{ type: 'text', text: userText }],
+    };
+    run.thread.messages.push(userMessage);
+    // Persist the user message eagerly so it survives crashes mid-response.
+    await onMessages(run.thread.messages);
 
     try {
       const result = streamText({
-        model: this.provider.model(session.config.model, session.config.provider),
-        system: this.prompt.build(session),
-        messages: session.messages,
-        tools: AgentTools.all(session),
+        model: this.provider.model(run.config.model, run.config.provider),
+        system: this.prompt.build(run),
+        messages: await convertToModelMessages(run.thread.messages),
+        tools: AgentTools.all(run),
         stopWhen: stepCountIs(Number.MAX_SAFE_INTEGER),
-        abortSignal: session.abort.signal,
+        abortSignal: run.abort.signal,
       });
 
-      for await (const part of result.fullStream) {
-        if (session.stream.isClosed()) break;
-        switch (part.type) {
-          case 'text-delta': {
-            const delta = (part as { text?: string; textDelta?: string }).text
-              ?? (part as { textDelta?: string }).textDelta
-              ?? '';
-            if (delta) session.stream.write({ type: 'text-delta', delta });
+      const uiStream = result.toUIMessageStream<UIMessage>({
+        originalMessages: run.thread.messages,
+        onFinish: async ({ messages }) => {
+          run.thread.messages = messages;
+          await onMessages(run.thread.messages);
+        },
+      });
+
+      for await (const chunk of uiStream) {
+        if (run.stream.isClosed()) break;
+        switch (chunk.type) {
+          case 'text-delta':
+            if (chunk.delta) run.stream.write({ type: 'text-delta', delta: chunk.delta });
             break;
-          }
-          case 'tool-call': {
-            session.stream.write({
+          case 'tool-input-available':
+            run.stream.write({
               type: 'tool-call',
-              toolCallId: part.toolCallId,
-              name: part.toolName,
-              input: (part as { input?: unknown }).input,
+              toolCallId: chunk.toolCallId,
+              name: chunk.toolName,
+              input: chunk.input,
             });
             break;
-          }
-          case 'tool-result': {
-            session.stream.write({
+          case 'tool-output-available':
+            run.stream.write({
               type: 'tool-result',
-              toolCallId: part.toolCallId,
-              output: (part as { output?: unknown }).output,
+              toolCallId: chunk.toolCallId,
+              output: chunk.output,
             });
             break;
-          }
-          case 'error': {
-            const err = (part as { error?: unknown }).error;
-            const message = err instanceof Error ? err.message : String(err);
-            session.stream.write({ type: 'error', message });
+          case 'tool-output-error':
+            run.stream.write({ type: 'error', message: chunk.errorText });
             break;
-          }
+          case 'error':
+            run.stream.write({ type: 'error', message: chunk.errorText });
+            break;
           default:
             break;
         }
       }
 
-      const response = await result.response;
-      if (response?.messages) {
-        session.messages.push(...response.messages);
-      }
-      session.stream.write({ type: 'done' });
+      run.stream.write({ type: 'done' });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      session.stream.write({ type: 'error', message });
-      session.stream.write({ type: 'done' });
+      run.stream.write({ type: 'error', message });
+      run.stream.write({ type: 'done' });
     } finally {
-      session.stream.end();
+      run.stream.end();
     }
   }
 }
