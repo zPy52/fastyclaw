@@ -3,9 +3,9 @@ import path from 'node:path';
 import { Provider } from '@/client/types';
 
 export class Const {
-  public static readonly port: number = Number(process.env.FASTYCLAW_PORT ?? 5177);
+  public static readonly DEFAULT_PORT: number = 5177;
   public static readonly host: string = '127.0.0.1';
-  public static readonly baseUrl: string = `http://localhost:${Const.port}`;
+  public static readonly baseUrl: string = `http://localhost:${Const.DEFAULT_PORT}`;
   public static readonly defaultModel: string = 'gpt-5.4-mini';
   public static readonly defaultProvider: Provider = 'openai';
   public static readonly skillsDir: string = path.join(os.homedir(), '.agents', 'skills');
