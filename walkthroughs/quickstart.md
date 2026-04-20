@@ -5,7 +5,7 @@ This project runs as a local HTTP server with a small client wrapper around it.
 ## Prerequisites
 
 - Node.js 18 or newer
-- An OpenAI API key in `OPENAI_API_KEY`
+- A provider credential for the backend you want to use, such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, or `AI_GATEWAY_API_KEY`
 
 Optional, but useful for browser-based tools:
 
@@ -44,10 +44,46 @@ The server listens on `http://127.0.0.1:5177` by default.
 ## Concepts
 
 - **Config** lives at `~/.fastyclaw/config.json` and holds the chosen `model`,
-  `provider`, and `cwd`. It is created on first run with defaults.
+  `provider`, `providerOptions`, and `cwd`. It is created on first run with
+  defaults.
 - **Threads** are JSON arrays of AI SDK UI messages, each stored at
   `~/.fastyclaw/threads/<uuid>.json`. Threads are only held in memory while
   the model is actively processing; otherwise they live only on disk.
+
+## Change model or provider
+
+`fastyclaw` stores the active provider in `~/.fastyclaw/config.json`, but the
+easiest way to switch is through the CLI:
+
+```bash
+fastyclaw provider list
+fastyclaw provider show
+fastyclaw provider set openai --model gpt-5.4-mini --key apiKey=$OPENAI_API_KEY
+fastyclaw provider set anthropic --model claude-sonnet-4-5 --key apiKey=$ANTHROPIC_API_KEY
+fastyclaw provider option set openai reasoningEffort high
+fastyclaw provider option set anthropic thinking '{"type":"enabled","budgetTokens":10000}'
+fastyclaw provider probe
+```
+
+- `provider set` changes the provider and model together.
+- `provider option set` writes into the namespaced `providerOptions` bag.
+- `provider models <id>` shows live model ids when the provider supports it.
+
+For the full provider reference, see [providers.md](providers.md).
+
+If you prefer to do the same thing over HTTP directly:
+
+```bash
+curl -s http://127.0.0.1:5177/providers
+curl -s http://127.0.0.1:5177/config
+curl -s -X POST http://127.0.0.1:5177/config \
+  -H 'Content-Type: application/json' \
+  -d '{"provider":{"id":"openai","apiKey":"'$OPENAI_API_KEY'"},"model":"gpt-5.4-mini"}'
+curl -s -X POST http://127.0.0.1:5177/config \
+  -H 'Content-Type: application/json' \
+  -d '{"providerOptions":{"openai":{"reasoningEffort":"high"}}}'
+curl -s -X POST http://127.0.0.1:5177/providers/openai/probe
+```
 
 ## Smoke test
 
@@ -57,7 +93,7 @@ Read or update the global config:
 curl -s http://127.0.0.1:5177/config
 curl -s -X POST http://127.0.0.1:5177/config \
   -H 'Content-Type: application/json' \
-  -d '{"model":"gpt-5.4-mini","cwd":"."}'
+  -d '{"cwd":"."}'
 ```
 
 Send a message without specifying a thread — one will be created
@@ -228,6 +264,8 @@ console.log(await client.telegram.status());
 
 ## Notes
 
-- The default model is `gpt-5.4-mini`.
-- Only the `openai` provider is supported right now.
+- On a clean install, fastyclaw auto-detects the provider from env and falls
+  back to OpenAI with `gpt-5.4-mini` when nothing else is configured.
+- You can switch providers at any time with `fastyclaw provider set`; see the
+  provider guide above for the full matrix.
 - Browser tools are launched lazily, so the server can start without a browser installed, but browser actions will need a usable Chrome/Chromium setup.
