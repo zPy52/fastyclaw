@@ -13,6 +13,7 @@
   ],
   "scripts": {
     "build": "tsc && tsc-alias -f -fe .js",
+    "go": "npm run build && npm start",
     "prepublishOnly": "npm run build",
     "start": "node dist/cli.js start",
     "dev": "node scripts/dev.mjs"
