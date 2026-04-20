@@ -9,7 +9,57 @@ export type ServerEvent =
   | { type: 'error'; message: string }
   | { type: 'done' };
 
-export type Provider = 'openai';
+export type ProviderId =
+  | 'openai' | 'anthropic' | 'google' | 'google-vertex' | 'azure'
+  | 'amazon-bedrock' | 'groq' | 'mistral' | 'xai' | 'deepseek'
+  | 'perplexity' | 'cohere' | 'togetherai' | 'fireworks' | 'cerebras'
+  | 'openai-compatible' | 'gateway'
+  | 'claude-code' | 'codex-cli' | 'gemini-cli' | 'ollama' | 'openrouter';
+
+export interface ProviderSettingsBase {
+  apiKey?: string;
+  baseURL?: string;
+  headers?: Record<string, string>;
+}
+
+export type ProviderConfig =
+  | ({ id: 'openai' } & ProviderSettingsBase & { organization?: string; project?: string })
+  | ({ id: 'anthropic' } & ProviderSettingsBase)
+  | ({ id: 'google' } & ProviderSettingsBase)
+  | ({ id: 'google-vertex' } & ProviderSettingsBase & { project: string; location: string })
+  | ({ id: 'azure' } & ProviderSettingsBase & { resourceName: string; apiVersion?: string })
+  | ({ id: 'amazon-bedrock' } & { region: string; accessKeyId?: string; secretAccessKey?: string; sessionToken?: string })
+  | ({ id: 'groq' } & ProviderSettingsBase)
+  | ({ id: 'mistral' } & ProviderSettingsBase)
+  | ({ id: 'xai' } & ProviderSettingsBase)
+  | ({ id: 'deepseek' } & ProviderSettingsBase)
+  | ({ id: 'perplexity' } & ProviderSettingsBase)
+  | ({ id: 'cohere' } & ProviderSettingsBase)
+  | ({ id: 'togetherai' } & ProviderSettingsBase)
+  | ({ id: 'fireworks' } & ProviderSettingsBase)
+  | ({ id: 'cerebras' } & ProviderSettingsBase)
+  | ({ id: 'openai-compatible' } & ProviderSettingsBase & { name: string })
+  | ({ id: 'gateway' } & ProviderSettingsBase)
+  | ({ id: 'claude-code' } & { binPath?: string })
+  | ({ id: 'codex-cli' } & { binPath?: string })
+  | ({ id: 'gemini-cli' } & { binPath?: string })
+  | ({ id: 'ollama' } & ProviderSettingsBase)
+  | ({ id: 'openrouter' } & ProviderSettingsBase);
+
+/**
+ * Legacy alias — historical flat `Provider` type kept for backwards-compat
+ * in non-server callers that only ever used 'openai'. Prefer `ProviderId`.
+ */
+export type Provider = ProviderId;
+
+export interface CallOptions {
+  temperature?: number;
+  topP?: number;
+  maxOutputTokens?: number;
+  presencePenalty?: number;
+  frequencyPenalty?: number;
+  seed?: number;
+}
 
 export type TelegramGroupTrigger = 'mention' | 'all';
 
@@ -22,7 +72,9 @@ export interface TelegramConfig {
 
 export interface AppConfig {
   model: string;
-  provider: Provider;
+  provider: ProviderConfig;
+  providerOptions: Record<string, Record<string, unknown>>;
+  callOptions: CallOptions;
   cwd: string;
   telegram: TelegramConfig;
 }

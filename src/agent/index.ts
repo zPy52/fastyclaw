@@ -1,6 +1,6 @@
 import { SubmoduleAgentRuntimeLoop } from '@/agent/loop';
 import { SubmoduleAgentRuntimePrompt } from '@/agent/prompt';
-import { SubmoduleAgentRuntimeProvider } from '@/agent/provider';
+import { SubmoduleAgentRuntimeProvider } from '@/agent/provider/index';
 
 export class AgentRuntime {
   public static readonly prompt = new SubmoduleAgentRuntimePrompt();

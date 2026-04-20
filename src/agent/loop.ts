@@ -1,9 +1,10 @@
 import crypto from 'node:crypto';
 import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from 'ai';
+import type { ProviderOptions } from '@ai-sdk/provider-utils';
 import type { Run } from '@/server/types';
 import { AgentTools } from '@/agent/tools/index';
 import { SubmoduleAgentRuntimePrompt } from '@/agent/prompt';
-import { SubmoduleAgentRuntimeProvider } from '@/agent/provider';
+import { SubmoduleAgentRuntimeProvider } from '@/agent/provider/index';
 
 export class SubmoduleAgentRuntimeLoop {
   public constructor(
@@ -26,13 +27,16 @@ export class SubmoduleAgentRuntimeLoop {
     await onMessages(run.thread.messages);
 
     try {
+      const model = await this.provider.model(run.config);
       const result = streamText({
-        model: this.provider.model(run.config.model, run.config.provider),
+        model,
         system: this.prompt.build(run),
         messages: await convertToModelMessages(run.thread.messages),
         tools: AgentTools.all(run),
         stopWhen: stepCountIs(Number.MAX_SAFE_INTEGER),
         abortSignal: run.abort.signal,
+        ...run.config.callOptions,
+        providerOptions: run.config.providerOptions as ProviderOptions,
       });
 
       const uiStream = result.toUIMessageStream<UIMessage>({

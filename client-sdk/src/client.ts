@@ -1,6 +1,13 @@
 import { createParser, type EventSourceMessage } from 'eventsource-parser';
-import type { AppConfig, Provider, ServerEvent, FastyclawClientOptions } from '@/types';
+import type {
+  AppConfig,
+  CallOptions,
+  ProviderConfig,
+  ServerEvent,
+  FastyclawClientOptions,
+} from '@/types';
 import { FastyclawClientTelegram } from '@/telegram';
+import { FastyclawClientProviders } from '@/providers';
 
 const DEFAULT_BASE_URL = 'http://localhost:5177';
 
@@ -17,10 +24,12 @@ export class FastyclawClient {
   private readonly baseUrl: string;
   private lastThreadId: string | null = null;
   public readonly telegram: FastyclawClientTelegram;
+  public readonly providers: FastyclawClientProviders;
 
   public constructor(opts?: FastyclawClientOptions) {
     this.baseUrl = opts?.baseUrl ?? DEFAULT_BASE_URL;
     this.telegram = new FastyclawClientTelegram(this.baseUrl);
+    this.providers = new FastyclawClientProviders(this.baseUrl);
   }
 
   /** The thread id most recently created or used by this client. */
@@ -50,12 +59,27 @@ export class FastyclawClient {
     return (await res.json()) as AppConfig;
   }
 
+  public async resetConfig(): Promise<AppConfig> {
+    const res = await fetch(`${this.baseUrl}/config/reset`, { method: 'POST' });
+    if (!res.ok) throw new Error(`resetConfig failed: ${res.status}`);
+    const body = (await res.json()) as { config: AppConfig };
+    return body.config;
+  }
+
   public async setModel(model: string): Promise<void> {
     await this.updateConfig({ model });
   }
 
-  public async setProvider(provider: Provider): Promise<void> {
+  public async setProvider(provider: ProviderConfig): Promise<void> {
     await this.updateConfig({ provider });
+  }
+
+  public async setProviderOptions(options: Record<string, Record<string, unknown>>): Promise<void> {
+    await this.updateConfig({ providerOptions: options });
+  }
+
+  public async setCallOptions(options: CallOptions): Promise<void> {
+    await this.updateConfig({ callOptions: options });
   }
 
   public async setCwd(cwd: string): Promise<void> {

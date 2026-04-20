@@ -9,6 +9,15 @@ function usage(): never {
   console.error([
     'usage:',
     '  fastyclaw start [port]',
+    '  fastyclaw provider list',
+    '  fastyclaw provider show',
+    '  fastyclaw provider set <id> [--model <m>] [--key k=v ...]',
+    '  fastyclaw provider models <id>',
+    '  fastyclaw provider probe',
+    '  fastyclaw provider option set <provider> <key> <value>',
+    '  fastyclaw provider option unset <provider> <key>',
+    '  fastyclaw call-option set <key> <value>',
+    '  fastyclaw call-option unset <key>',
     '  fastyclaw telegram status',
     '  fastyclaw telegram set-token <token>',
     '  fastyclaw telegram allow <userId> [<userId> ...]',
@@ -44,6 +53,130 @@ async function request(method: string, path: string, body?: unknown): Promise<un
     process.exit(1);
   }
   return json;
+}
+
+function coerceValue(raw: string): unknown {
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  if (raw === 'null') return null;
+  if (/^-?\d+(\.\d+)?$/.test(raw)) return Number(raw);
+  if (raw.startsWith('{') || raw.startsWith('[') || raw.startsWith('"')) {
+    try { return JSON.parse(raw); } catch { /* fall through */ }
+  }
+  return raw;
+}
+
+function parseKeyPairs(tokens: string[]): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const t of tokens) {
+    const eq = t.indexOf('=');
+    if (eq < 0) { console.error(`invalid --key value (expected k=v): ${t}`); process.exit(1); }
+    const k = t.slice(0, eq);
+    const v = t.slice(eq + 1);
+    if (k.startsWith('headers.')) {
+      const hk = k.slice('headers.'.length);
+      const headers = (out.headers as Record<string, string> | undefined) ?? {};
+      headers[hk] = v;
+      out.headers = headers;
+    } else {
+      out[k] = coerceValue(v);
+    }
+  }
+  return out;
+}
+
+async function handleProvider(sub: string | undefined, rest: string[]): Promise<void> {
+  switch (sub) {
+    case 'list': {
+      const data = await request('GET', '/providers');
+      console.log(JSON.stringify(data, null, 2));
+      return;
+    }
+    case 'show': {
+      const data = await request('GET', '/config');
+      console.log(JSON.stringify(data, null, 2));
+      return;
+    }
+    case 'set': {
+      const id = rest[0];
+      if (!id) usage();
+      let model: string | undefined;
+      const keyPairs: string[] = [];
+      for (let i = 1; i < rest.length; i++) {
+        const tok = rest[i];
+        if (tok === '--model') { model = rest[++i]; continue; }
+        if (tok === '--key') { keyPairs.push(rest[++i]); continue; }
+        console.error(`unknown arg: ${tok}`);
+        process.exit(1);
+      }
+      const provider: Record<string, unknown> = { id, ...parseKeyPairs(keyPairs) };
+      const body: Record<string, unknown> = { provider };
+      if (model) body.model = model;
+      const out = await request('POST', '/config', body);
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'models': {
+      const id = rest[0];
+      if (!id) usage();
+      const out = await request('GET', `/providers/${encodeURIComponent(id)}/models`);
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'probe': {
+      const cfg = await request('GET', '/config') as { provider?: { id?: string }; model?: string };
+      const id = cfg.provider?.id;
+      if (!id) { console.error('no provider configured'); process.exit(1); }
+      const out = await request('POST', `/providers/${encodeURIComponent(id)}/probe`, {
+        settings: cfg.provider,
+        model: cfg.model,
+      });
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'option': {
+      const action = rest[0];
+      if (action === 'set') {
+        const provider = rest[1]; const key = rest[2]; const value = rest[3];
+        if (!provider || !key || value === undefined) usage();
+        const out = await request('POST', '/config', {
+          providerOptions: { [provider]: { [key]: coerceValue(value) } },
+        });
+        console.log(JSON.stringify(out, null, 2));
+        return;
+      }
+      if (action === 'unset') {
+        const provider = rest[1]; const key = rest[2];
+        if (!provider || !key) usage();
+        const out = await request('POST', '/config', {
+          providerOptions: { [provider]: { [key]: null } },
+        });
+        console.log(JSON.stringify(out, null, 2));
+        return;
+      }
+      usage();
+    }
+    default:
+      usage();
+  }
+}
+
+async function handleCallOption(sub: string | undefined, rest: string[]): Promise<void> {
+  if (sub === 'set') {
+    const key = rest[0]; const value = rest[1];
+    if (!key || value === undefined) usage();
+    const out = await request('POST', '/config', { callOptions: { [key]: coerceValue(value) } });
+    console.log(JSON.stringify(out, null, 2));
+    return;
+  }
+  if (sub === 'unset') {
+    const key = rest[0];
+    if (!key) usage();
+    const out = await request('POST', '/config', { callOptions: { [key]: null } });
+    console.log(JSON.stringify(out, null, 2));
+    return;
+  }
+  usage();
 }
 
 async function handleTelegram(sub: string | undefined, rest: string[]): Promise<void> {
@@ -116,6 +249,16 @@ if (cmd === 'start') {
     }
   }
   FastyclawServer.start(port).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (cmd === 'provider') {
+  handleProvider(argv[1], argv.slice(2)).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (cmd === 'call-option') {
+  handleCallOption(argv[1], argv.slice(2)).catch((err) => {
     console.error(err);
     process.exit(1);
   });
