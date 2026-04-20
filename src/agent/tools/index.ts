@@ -9,6 +9,7 @@ import { webFetch } from '@/agent/tools/web-fetch';
 import { checkShell } from '@/agent/tools/check-shell';
 import { fileSearch } from '@/agent/tools/file-search';
 import { screenshot } from '@/agent/tools/screenshot';
+import { sendFiles } from '@/agent/tools/send-files';
 
 export class AgentTools {
   public static all(run: Run) {
@@ -23,6 +24,7 @@ export class AgentTools {
       browser: browser(run),
       see_image: seeImage(run),
       screenshot: screenshot(run),
+      send_files: sendFiles(run),
     };
   }
 }

@@ -48,6 +48,13 @@ export class SubmoduleAgentRuntimePrompt {
         '- Prefer read_file and file_search over run_shell for reading and discovery.',
         '- When editing, keep the `old` string unique unless you intend replaceAll.',
         '- Do not print secrets or environment variables.',
+        '',
+        '## Delivering files to the user',
+        '- Producing a file does NOT deliver it. Tools like `screenshot` let you *see* a file; they do not share it with the user.',
+        '- To actually hand a file to the user (screenshot, recording, export, download, anything on disk), call `send_files` with the path(s). On Telegram this routes each file to the right attachment type (photo, video, audio, voice note, or document) based on its extension. In other frontends it just confirms the intent.',
+        '- `send_files` is cheap: the file bytes are NOT re-loaded into your context on success. So if the user asks you to "send" or "share" a file, prefer calling `send_files` over pasting the path in prose.',
+        '- You can batch multiple paths in one `send_files` call. Mix types freely.',
+        '- When the user asks for a screenshot of their desktop over chat: call `screenshot` (to capture + optionally inspect), then call `send_files` with the returned path so they actually receive it.',
       ].join('\n')
     );
     return parts.join('\n\n');

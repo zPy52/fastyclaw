@@ -1,7 +1,7 @@
 import { InputFile, type Bot } from 'grammy';
 import { SubmoduleFastyclawServerStream } from '@/server/stream';
 import type { ServerEvent } from '@/server/types';
-import type { ScreenshotResult } from '@/agent/tools/screenshot';
+import type { SendFilesResult, SendFileEntry } from '@/agent/tools/send-files';
 
 const EDIT_INTERVAL_MS = 800;
 const TG_MAX = 4000;
@@ -45,8 +45,8 @@ export class TelegramStream extends SubmoduleFastyclawServerStream {
       case 'tool-result': {
         const name = this.toolNames.get(event.toolCallId);
         this.toolNames.delete(event.toolCallId);
-        if (name === 'screenshot') {
-          this.handleScreenshotResult(event.output);
+        if (name === 'send_files') {
+          this.handleSendFilesResult(event.output);
         }
         break;
       }
@@ -117,17 +117,17 @@ export class TelegramStream extends SubmoduleFastyclawServerStream {
     }
   }
 
-  private handleScreenshotResult(output: unknown): void {
-    const res = output as ScreenshotResult | undefined;
-    if (!res || res.status !== 'ok') return;
+  private handleSendFilesResult(output: unknown): void {
+    const res = output as SendFilesResult | undefined;
+    if (!res || res.status !== 'ok' || res.files.length === 0) return;
 
-    const filePath = res.path;
+    const files = res.files;
     const priorMessageId = this.messageId;
     const priorLastSent = this.lastSentText;
     const pendingText = this.buffer.length > 0 ? this.render() : null;
 
     // Detach the current anchor synchronously so incoming text-deltas accumulate
-    // for the fresh anchor we'll create below the photo.
+    // for the fresh anchor we'll create below the attachments.
     this.messageId = null;
     this.lastSentText = '';
     this.buffer = '';
@@ -147,11 +147,8 @@ export class TelegramStream extends SubmoduleFastyclawServerStream {
           }
         }
       }
-      try {
-        await this.bot.api.sendPhoto(this.chatId, new InputFile(filePath));
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error(`[telegram] sendPhoto failed: ${message}`);
+      for (const file of files) {
+        await this.sendAttachment(file);
       }
       try {
         const sent = await this.bot.api.sendMessage(this.chatId, '…');
@@ -164,6 +161,33 @@ export class TelegramStream extends SubmoduleFastyclawServerStream {
         console.error(`[telegram] sendMessage (anchor) failed: ${message}`);
       }
     });
+  }
+
+  private async sendAttachment(file: SendFileEntry): Promise<void> {
+    const input = new InputFile(file.path);
+    try {
+      switch (file.kind) {
+        case 'photo':
+          await this.bot.api.sendPhoto(this.chatId, input);
+          return;
+        case 'video':
+          await this.bot.api.sendVideo(this.chatId, input);
+          return;
+        case 'audio':
+          await this.bot.api.sendAudio(this.chatId, input);
+          return;
+        case 'voice':
+          await this.bot.api.sendVoice(this.chatId, input);
+          return;
+        case 'document':
+        default:
+          await this.bot.api.sendDocument(this.chatId, input);
+          return;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[telegram] send ${file.kind} (${file.path}) failed: ${message}`);
+    }
   }
 
   private render(): string {
