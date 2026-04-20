@@ -121,6 +121,19 @@ fastyclaw telegram status
 # { "running": true, "botUsername": "my_bot", "chatCount": 0 }
 ```
 
+If you prefer to hit the local HTTP server directly, the equivalent
+`curl` calls are:
+
+```bash
+curl -s -X POST http://127.0.0.1:5177/telegram/config \
+  -H 'Content-Type: application/json' \
+  -d '{"token":"123456:ABCdef..."}'
+
+curl -s -X POST http://127.0.0.1:5177/telegram/start
+
+curl -s http://127.0.0.1:5177/telegram/status
+```
+
 ### 3. Say hi
 
 Open Telegram, find your bot by its `@username`, and send a message.
@@ -148,6 +161,18 @@ Back to mention-only:
 fastyclaw telegram trigger mention
 ```
 
+Using `curl` against the local endpoint:
+
+```bash
+curl -s -X POST http://127.0.0.1:5177/telegram/config \
+  -H 'Content-Type: application/json' \
+  -d '{"groupTrigger":"all"}'
+
+curl -s -X POST http://127.0.0.1:5177/telegram/config \
+  -H 'Content-Type: application/json' \
+  -d '{"groupTrigger":"mention"}'
+```
+
 ### 5. Restrict who can talk to it
 
 By default anyone who can DM the bot is allowed. To whitelist specific
@@ -160,6 +185,18 @@ fastyclaw telegram allow 12345678 87654321
 Pass no IDs in the allow list (or clear it via the API) to open it back
 up.
 
+The same update via `curl` looks like this:
+
+```bash
+curl -s -X POST http://127.0.0.1:5177/telegram/config \
+  -H 'Content-Type: application/json' \
+  -d '{"allowedUserIds":[12345678,87654321]}'
+
+curl -s -X POST http://127.0.0.1:5177/telegram/config \
+  -H 'Content-Type: application/json' \
+  -d '{"allowedUserIds":[]}'
+```
+
 ### 6. Stopping and forgetting
 
 ```bash
@@ -169,6 +206,14 @@ fastyclaw telegram forget <chatId> # unmap a chat (thread file is kept)
 ```
 
 The chat map lives at `~/.fastyclaw/telegram-chats.json`.
+
+If you want the HTTP equivalents:
+
+```bash
+curl -s -X POST http://127.0.0.1:5177/telegram/stop
+curl -s http://127.0.0.1:5177/telegram/chats
+curl -s -X DELETE http://127.0.0.1:5177/telegram/chats/<chatId>
+```
 
 ### From the client SDK
 

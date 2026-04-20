@@ -1,19 +1,20 @@
-import type { Bot } from 'grammy';
+import { InputFile, type Bot } from 'grammy';
 import { SubmoduleFastyclawServerStream } from '@/server/stream';
 import type { ServerEvent } from '@/server/types';
+import type { ScreenshotResult } from '@/agent/tools/screenshot';
 
 const EDIT_INTERVAL_MS = 800;
 const TG_MAX = 4000;
 
 export class TelegramStream extends SubmoduleFastyclawServerStream {
   private buffer = '';
-  private toolLines: string[] = [];
   private messageId: number | null = null;
   private lastSentText = '';
   private scheduled: NodeJS.Timeout | null = null;
   private lastEditAt = 0;
   private flushing: Promise<void> = Promise.resolve();
   private closedLocal = false;
+  private readonly toolNames = new Map<string, string>();
 
   public constructor(
     private readonly bot: Bot,
@@ -36,20 +37,19 @@ export class TelegramStream extends SubmoduleFastyclawServerStream {
         this.scheduleEdit();
         break;
       case 'tool-call': {
-        let inputPreview = '';
-        try {
-          inputPreview = JSON.stringify(event.input);
-          if (inputPreview.length > 80) inputPreview = inputPreview.slice(0, 77) + '…';
-        } catch {
-          inputPreview = '…';
-        }
-        this.toolLines.push(`🔧 ${event.name}(${inputPreview})`);
-        this.scheduleEdit();
+        // Tool calls remain in the persisted/UI message history, but we keep
+        // Telegram output focused on the assistant's visible reply.
+        this.toolNames.set(event.toolCallId, event.name);
         break;
       }
-      case 'tool-result':
-        // Keep the compact log; result bodies can be huge.
+      case 'tool-result': {
+        const name = this.toolNames.get(event.toolCallId);
+        this.toolNames.delete(event.toolCallId);
+        if (name === 'screenshot') {
+          this.handleScreenshotResult(event.output);
+        }
         break;
+      }
       case 'error':
         this.buffer += `\n⚠️ ${event.message}`;
         this.scheduleEdit();
@@ -117,10 +117,58 @@ export class TelegramStream extends SubmoduleFastyclawServerStream {
     }
   }
 
+  private handleScreenshotResult(output: unknown): void {
+    const res = output as ScreenshotResult | undefined;
+    if (!res || res.status !== 'ok') return;
+
+    const filePath = res.path;
+    const priorMessageId = this.messageId;
+    const priorLastSent = this.lastSentText;
+    const pendingText = this.buffer.length > 0 ? this.render() : null;
+
+    // Detach the current anchor synchronously so incoming text-deltas accumulate
+    // for the fresh anchor we'll create below the photo.
+    this.messageId = null;
+    this.lastSentText = '';
+    this.buffer = '';
+    if (this.scheduled) {
+      clearTimeout(this.scheduled);
+      this.scheduled = null;
+    }
+
+    this.flushing = this.flushing.then(async () => {
+      if (priorMessageId !== null && pendingText !== null && pendingText !== priorLastSent) {
+        try {
+          await this.bot.api.editMessageText(this.chatId, priorMessageId, pendingText);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          if (!message.includes('message is not modified')) {
+            console.error(`[telegram] editMessageText (finalize) failed: ${message}`);
+          }
+        }
+      }
+      try {
+        await this.bot.api.sendPhoto(this.chatId, new InputFile(filePath));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[telegram] sendPhoto failed: ${message}`);
+      }
+      try {
+        const sent = await this.bot.api.sendMessage(this.chatId, '…');
+        this.messageId = sent.message_id;
+        this.lastSentText = '…';
+        this.lastEditAt = Date.now();
+        if (this.buffer.length > 0) this.scheduleEdit(true);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[telegram] sendMessage (anchor) failed: ${message}`);
+      }
+    });
+  }
+
   private render(): string {
     const body = this.buffer.length > 0 ? this.buffer : '…';
-    const toolBlock = this.toolLines.length > 0 ? this.toolLines.join('\n') + '\n\n' : '';
-    const text = toolBlock + body;
+    const text = body;
     if (text.length <= TG_MAX) return text;
     return text.slice(text.length - TG_MAX);
   }

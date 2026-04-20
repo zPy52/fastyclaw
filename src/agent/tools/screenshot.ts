@@ -41,8 +41,33 @@ function detectGui(): { hasGui: boolean; reason?: string } {
   return { hasGui: false, reason: `Unsupported platform: ${platform}` };
 }
 
+const MAX_DIMENSION = 1440;
+
 async function captureDarwin(filePath: string): Promise<void> {
   await execa('screencapture', ['-x', filePath]);
+}
+
+async function resize(filePath: string, platform: NodeJS.Platform): Promise<void> {
+  if (platform === 'darwin') {
+    await execa('sips', ['-Z', String(MAX_DIMENSION), filePath]);
+    return;
+  }
+  if (platform === 'linux') {
+    const candidates: Array<{ cmd: string; args: string[] }> = [
+      { cmd: 'magick', args: [filePath, '-resize', `${MAX_DIMENSION}x${MAX_DIMENSION}>`, filePath] },
+      { cmd: 'convert', args: [filePath, '-resize', `${MAX_DIMENSION}x${MAX_DIMENSION}>`, filePath] },
+    ];
+    for (const { cmd, args } of candidates) {
+      try {
+        await execa(cmd, args);
+        return;
+      } catch {
+        // try next
+      }
+    }
+    return; // no resizer available — leave as-is
+  }
+  // Windows resize is done inline in the capture script.
 }
 
 async function captureLinux(filePath: string): Promise<void> {
@@ -69,13 +94,25 @@ async function captureLinux(filePath: string): Promise<void> {
 }
 
 async function captureWindows(filePath: string): Promise<void> {
+  const escaped = filePath.replace(/'/g, "''");
   const script = [
     'Add-Type -AssemblyName System.Windows.Forms,System.Drawing;',
     '$b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds;',
     '$bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height;',
     '$g = [System.Drawing.Graphics]::FromImage($bmp);',
     '$g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size);',
-    `$bmp.Save('${filePath.replace(/'/g, "''")}', [System.Drawing.Imaging.ImageFormat]::Png);`,
+    `$max = ${MAX_DIMENSION};`,
+    '$scale = [Math]::Min(1.0, [Math]::Min($max / $bmp.Width, $max / $bmp.Height));',
+    'if ($scale -lt 1.0) {',
+    '  $nw = [int]($bmp.Width * $scale); $nh = [int]($bmp.Height * $scale);',
+    '  $resized = New-Object System.Drawing.Bitmap $nw, $nh;',
+    '  $rg = [System.Drawing.Graphics]::FromImage($resized);',
+    '  $rg.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic;',
+    '  $rg.DrawImage($bmp, 0, 0, $nw, $nh);',
+    `  $resized.Save('${escaped}', [System.Drawing.Imaging.ImageFormat]::Png);`,
+    '} else {',
+    `  $bmp.Save('${escaped}', [System.Drawing.Imaging.ImageFormat]::Png);`,
+    '}',
   ].join(' ');
   await execa('powershell', ['-NoProfile', '-Command', script]);
 }
@@ -105,6 +142,7 @@ export function screenshot(run: Run) {
         else if (platform === 'linux') await captureLinux(filePath);
         else if (platform === 'win32') await captureWindows(filePath);
         else throw new Error(`Unsupported platform: ${platform}`);
+        await resize(filePath, platform);
       } catch (err) {
         return {
           status: 'error',
