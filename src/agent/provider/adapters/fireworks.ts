@@ -7,7 +7,6 @@ export const fireworksAdapter: ProviderAdapter = {
   pkg: '@ai-sdk/fireworks',
   docsUrl: 'https://ai-sdk.dev/providers/ai-sdk-providers/fireworks',
   async create(cfg, model): Promise<LanguageModel> {
-    // @ts-expect-error optional dep
     const { createFireworks } = await import('@ai-sdk/fireworks');
     const c = cfg as Extract<ProviderConfig, { id: 'fireworks' }>;
     return createFireworks({ apiKey: c.apiKey, baseURL: c.baseURL, headers: c.headers })(model);

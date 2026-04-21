@@ -1,5 +1,4 @@
 import type { LanguageModel } from 'ai';
-import type { ProviderConfig } from '@/server/types';
 import type { ProviderAdapter } from '@/agent/provider/registry';
 
 export const geminiCliAdapter: ProviderAdapter = {
@@ -7,12 +6,12 @@ export const geminiCliAdapter: ProviderAdapter = {
   pkg: 'ai-sdk-provider-gemini-cli',
   docsUrl: 'https://github.com/ben-vargas/ai-sdk-provider-gemini-cli',
   async create(cfg, model): Promise<LanguageModel> {
-    // @ts-expect-error optional dep
+    void cfg;
     const mod = await import('ai-sdk-provider-gemini-cli');
-    const c = cfg as Extract<ProviderConfig, { id: 'gemini-cli' }>;
-    if (typeof mod.createGeminiCli === 'function') {
-      return mod.createGeminiCli({ pathToGeminiExecutable: c.binPath })(model);
+    const createGeminiProvider = mod.createGeminiProvider ?? mod.createGeminiCliCoreProvider;
+    if (typeof createGeminiProvider !== 'function') {
+      throw new Error('Gemini CLI provider export is not available.');
     }
-    return (mod.geminiCli ?? mod.default)(model);
+    return createGeminiProvider()(model);
   },
 };

@@ -7,7 +7,6 @@ export const googleVertexAdapter: ProviderAdapter = {
   pkg: '@ai-sdk/google-vertex',
   docsUrl: 'https://ai-sdk.dev/providers/ai-sdk-providers/google-vertex',
   async create(cfg, model): Promise<LanguageModel> {
-    // @ts-expect-error optional dep
     const { createVertex } = await import('@ai-sdk/google-vertex');
     const c = cfg as Extract<ProviderConfig, { id: 'google-vertex' }>;
     return createVertex({

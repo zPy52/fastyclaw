@@ -7,7 +7,6 @@ export const deepseekAdapter: ProviderAdapter = {
   pkg: '@ai-sdk/deepseek',
   docsUrl: 'https://ai-sdk.dev/providers/ai-sdk-providers/deepseek',
   async create(cfg, model): Promise<LanguageModel> {
-    // @ts-expect-error optional dep
     const { createDeepSeek } = await import('@ai-sdk/deepseek');
     const c = cfg as Extract<ProviderConfig, { id: 'deepseek' }>;
     return createDeepSeek({ apiKey: c.apiKey, baseURL: c.baseURL, headers: c.headers })(model);

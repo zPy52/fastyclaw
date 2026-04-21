@@ -7,7 +7,6 @@ export const mistralAdapter: ProviderAdapter = {
   pkg: '@ai-sdk/mistral',
   docsUrl: 'https://ai-sdk.dev/providers/ai-sdk-providers/mistral',
   async create(cfg, model): Promise<LanguageModel> {
-    // @ts-expect-error optional dep
     const { createMistral } = await import('@ai-sdk/mistral');
     const c = cfg as Extract<ProviderConfig, { id: 'mistral' }>;
     return createMistral({ apiKey: c.apiKey, baseURL: c.baseURL, headers: c.headers })(model);

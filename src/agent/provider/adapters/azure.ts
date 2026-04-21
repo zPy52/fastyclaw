@@ -7,7 +7,6 @@ export const azureAdapter: ProviderAdapter = {
   pkg: '@ai-sdk/azure',
   docsUrl: 'https://ai-sdk.dev/providers/ai-sdk-providers/azure',
   async create(cfg, model): Promise<LanguageModel> {
-    // @ts-expect-error optional dep
     const { createAzure } = await import('@ai-sdk/azure');
     const c = cfg as Extract<ProviderConfig, { id: 'azure' }>;
     return createAzure({

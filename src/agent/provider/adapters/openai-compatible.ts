@@ -7,7 +7,6 @@ export const openaiCompatibleAdapter: ProviderAdapter = {
   pkg: '@ai-sdk/openai-compatible',
   docsUrl: 'https://ai-sdk.dev/providers/openai-compatible-providers',
   async create(cfg, model): Promise<LanguageModel> {
-    // @ts-expect-error optional dep
     const { createOpenAICompatible } = await import('@ai-sdk/openai-compatible');
     const c = cfg as Extract<ProviderConfig, { id: 'openai-compatible' }>;
     return createOpenAICompatible({

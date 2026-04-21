@@ -7,7 +7,6 @@ export const anthropicAdapter: ProviderAdapter = {
   pkg: '@ai-sdk/anthropic',
   docsUrl: 'https://ai-sdk.dev/providers/ai-sdk-providers/anthropic',
   async create(cfg, model): Promise<LanguageModel> {
-    // @ts-expect-error optional dep
     const { createAnthropic } = await import('@ai-sdk/anthropic');
     const c = cfg as Extract<ProviderConfig, { id: 'anthropic' }>;
     return createAnthropic({ apiKey: c.apiKey, baseURL: c.baseURL, headers: c.headers })(model);

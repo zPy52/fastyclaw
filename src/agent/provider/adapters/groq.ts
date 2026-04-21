@@ -7,7 +7,6 @@ export const groqAdapter: ProviderAdapter = {
   pkg: '@ai-sdk/groq',
   docsUrl: 'https://ai-sdk.dev/providers/ai-sdk-providers/groq',
   async create(cfg, model): Promise<LanguageModel> {
-    // @ts-expect-error optional dep
     const { createGroq } = await import('@ai-sdk/groq');
     const c = cfg as Extract<ProviderConfig, { id: 'groq' }>;
     return createGroq({ apiKey: c.apiKey, baseURL: c.baseURL, headers: c.headers })(model);

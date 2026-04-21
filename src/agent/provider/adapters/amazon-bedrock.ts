@@ -7,7 +7,6 @@ export const amazonBedrockAdapter: ProviderAdapter = {
   pkg: '@ai-sdk/amazon-bedrock',
   docsUrl: 'https://ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock',
   async create(cfg, model): Promise<LanguageModel> {
-    // @ts-expect-error optional dep
     const { createAmazonBedrock } = await import('@ai-sdk/amazon-bedrock');
     const c = cfg as Extract<ProviderConfig, { id: 'amazon-bedrock' }>;
     return createAmazonBedrock({

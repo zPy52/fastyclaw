@@ -7,7 +7,6 @@ export const cerebrasAdapter: ProviderAdapter = {
   pkg: '@ai-sdk/cerebras',
   docsUrl: 'https://ai-sdk.dev/providers/ai-sdk-providers/cerebras',
   async create(cfg, model): Promise<LanguageModel> {
-    // @ts-expect-error optional dep
     const { createCerebras } = await import('@ai-sdk/cerebras');
     const c = cfg as Extract<ProviderConfig, { id: 'cerebras' }>;
     return createCerebras({ apiKey: c.apiKey, baseURL: c.baseURL, headers: c.headers })(model);

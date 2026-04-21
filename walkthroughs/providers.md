@@ -71,7 +71,7 @@ At the moment, `provider models` is implemented for OpenAI, Anthropic, Groq, and
 |---|---|---|---|
 | `claude-code` | `ai-sdk-provider-claude-code` | Optional `binPath` if the executable is not on `PATH` | Use a Claude Code CLI model id. |
 | `codex-cli` | `ai-sdk-provider-codex-cli` | Optional `binPath` if the executable is not on `PATH` | Use a Codex CLI model id. |
-| `gemini-cli` | `ai-sdk-provider-gemini-cli` | Optional `binPath` if the executable is not on `PATH` | Use a Gemini CLI model id. |
+| `gemini-cli` | `ai-sdk-provider-gemini-cli` | No adapter-specific keys required | Uses the package's current default auth flow. |
 | `ollama` | `ollama-ai-provider` | Optional `baseURL`, `headers` | Local model names like `llama3.1`. Model listing is supported. |
 
 ## Common Setups
@@ -122,12 +122,12 @@ fastyclaw provider option set anthropic thinking '{"type":"enabled","budgetToken
 
 ### CLI Providers
 
-`claude-code`, `codex-cli`, and `gemini-cli` call out to local executables. Use `binPath` when the binary is not already on `PATH`.
+`claude-code` and `codex-cli` can use `binPath` when the binary is not already on `PATH`. The currently installed `gemini-cli` package version uses its own default auth flow and does not expose a `binPath` setting through this adapter.
 
 ```bash
 fastyclaw provider set codex-cli --model gpt-5.1-codex --key binPath=/opt/codex/bin/codex
 fastyclaw provider set claude-code --model claude-sonnet-4-5 --key binPath=/usr/local/bin/claude
-fastyclaw provider set gemini-cli --model gemini-2.5-pro --key binPath=/usr/local/bin/gemini
+fastyclaw provider set gemini-cli --model gemini-2.5-pro
 ```
 
 ### Ollama
