@@ -8,6 +8,8 @@ import type {
   ProviderId,
   TelegramConfig,
   TelegramGroupTrigger,
+  WhatsappConfig,
+  WhatsappGroupTrigger,
 } from '@/server/types';
 
 const HOME = os.homedir();
@@ -15,11 +17,19 @@ const ROOT_DIR = path.join(HOME, '.fastyclaw');
 const CONFIG_PATH = path.join(ROOT_DIR, 'config.json');
 const THREADS_DIR = path.join(ROOT_DIR, 'threads');
 const TELEGRAM_CHATS_PATH = path.join(ROOT_DIR, 'telegram-chats.json');
+const WHATSAPP_AUTH_DIR = path.join(ROOT_DIR, 'whatsapp-auth');
+const WHATSAPP_CHATS_PATH = path.join(ROOT_DIR, 'whatsapp-chats.json');
 
 const DEFAULT_TELEGRAM: TelegramConfig = {
   token: null,
   enabled: false,
   allowedUserIds: [],
+  groupTrigger: 'mention',
+};
+
+const DEFAULT_WHATSAPP: WhatsappConfig = {
+  enabled: false,
+  allowedJids: [],
   groupTrigger: 'mention',
 };
 
@@ -30,6 +40,7 @@ export interface AppConfigPatch {
   callOptions?: Partial<CallOptions>;
   cwd?: string;
   telegram?: Partial<TelegramConfig>;
+  whatsapp?: Partial<WhatsappConfig>;
 }
 
 export class Const {
@@ -43,6 +54,8 @@ export class Const {
   public static readonly configPath: string = CONFIG_PATH;
   public static readonly threadsDir: string = THREADS_DIR;
   public static readonly telegramChatsPath: string = TELEGRAM_CHATS_PATH;
+  public static readonly whatsappAuthDir: string = WHATSAPP_AUTH_DIR;
+  public static readonly whatsappChatsPath: string = WHATSAPP_CHATS_PATH;
   public static readonly browserProfileDir: string =
     process.env.FASTYCLAW_BROWSER_PROFILE ?? path.join(HOME, '.fastyclaw', 'browser-profile');
   public static readonly browserCdpUrl: string | undefined = process.env.FASTYCLAW_BROWSER_CDP_URL;
@@ -84,6 +97,7 @@ export class AppConfigStore {
       callOptions: {},
       cwd: process.cwd(),
       telegram: { ...DEFAULT_TELEGRAM },
+      whatsapp: { ...DEFAULT_WHATSAPP },
     };
   }
 
@@ -103,8 +117,9 @@ export class AppConfigStore {
     const callOptions = isStringMap(raw.callOptions) ? (raw.callOptions as CallOptions) : {};
     const cwd = typeof raw.cwd === 'string' ? raw.cwd : process.cwd();
     const telegram = mergeTelegram(DEFAULT_TELEGRAM, raw.telegram as Partial<TelegramConfig> | undefined);
+    const whatsapp = mergeWhatsapp(DEFAULT_WHATSAPP, raw.whatsapp as Partial<WhatsappConfig> | undefined);
 
-    return { model, provider, providerOptions, callOptions, cwd, telegram };
+    return { model, provider, providerOptions, callOptions, cwd, telegram, whatsapp };
   }
 
   private write(config: AppConfig): void {
@@ -157,6 +172,9 @@ export class AppConfigStore {
     if (typeof patch.cwd === 'string') this.config.cwd = path.resolve(patch.cwd);
     if (patch.telegram) {
       this.config.telegram = mergeTelegram(this.config.telegram, patch.telegram);
+    }
+    if (patch.whatsapp) {
+      this.config.whatsapp = mergeWhatsapp(this.config.whatsapp, patch.whatsapp);
     }
     this.write(this.config);
     return this.get();
@@ -228,6 +246,19 @@ function mergeTelegram(base: TelegramConfig, patch: Partial<TelegramConfig> | un
   }
   if (patch.groupTrigger === 'mention' || patch.groupTrigger === 'all') {
     merged.groupTrigger = patch.groupTrigger as TelegramGroupTrigger;
+  }
+  return merged;
+}
+
+function mergeWhatsapp(base: WhatsappConfig, patch: Partial<WhatsappConfig> | undefined): WhatsappConfig {
+  const merged: WhatsappConfig = { ...base };
+  if (!patch) return merged;
+  if (typeof patch.enabled === 'boolean') merged.enabled = patch.enabled;
+  if (Array.isArray(patch.allowedJids)) {
+    merged.allowedJids = patch.allowedJids.filter((s): s is string => typeof s === 'string' && s.length > 0);
+  }
+  if (patch.groupTrigger === 'mention' || patch.groupTrigger === 'all') {
+    merged.groupTrigger = patch.groupTrigger as WhatsappGroupTrigger;
   }
   return merged;
 }

@@ -70,6 +70,14 @@ export interface TelegramConfig {
   groupTrigger: TelegramGroupTrigger;
 }
 
+export type WhatsappGroupTrigger = 'mention' | 'all';
+
+export interface WhatsappConfig {
+  enabled: boolean;
+  allowedJids: string[];
+  groupTrigger: WhatsappGroupTrigger;
+}
+
 export interface AppConfig {
   model: string;
   provider: ProviderConfig;
@@ -77,6 +85,7 @@ export interface AppConfig {
   callOptions: CallOptions;
   cwd: string;
   telegram: TelegramConfig;
+  whatsapp: WhatsappConfig;
 }
 
 export interface Thread {

@@ -72,6 +72,30 @@ export interface TelegramConfig {
   groupTrigger: TelegramGroupTrigger;
 }
 
+export type WhatsappGroupTrigger = 'mention' | 'all';
+
+export interface WhatsappConfig {
+  enabled: boolean;
+  allowedJids: string[];
+  groupTrigger: WhatsappGroupTrigger;
+}
+
+export type WhatsappChatKind = 'private' | 'group';
+
+export interface WhatsappChatListItem {
+  jid: string;
+  threadId: string;
+  title: string;
+  kind: WhatsappChatKind;
+}
+
+export interface WhatsappStatus {
+  running: boolean;
+  paired: boolean;
+  ownJid: string | null;
+  chatCount: number;
+}
+
 export interface AppConfig {
   model: string;
   provider: ProviderConfig;
@@ -79,6 +103,7 @@ export interface AppConfig {
   callOptions: CallOptions;
   cwd: string;
   telegram: TelegramConfig;
+  whatsapp: WhatsappConfig;
 }
 
 export type ChatKind = 'private' | 'group' | 'supergroup' | 'channel';

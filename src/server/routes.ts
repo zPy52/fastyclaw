@@ -10,10 +10,13 @@ import type {
   TelegramConfig,
   TelegramGroupTrigger,
   Thread,
+  WhatsappConfig,
+  WhatsappGroupTrigger,
 } from '@/server/types';
 import type { AppConfigPatch, AppConfigStore } from '@/config/index';
 import type { SubmoduleFastyclawServerThreads } from '@/server/threads';
 import { FastyclawTelegram } from '@/telegram/index';
+import { FastyclawWhatsapp } from '@/whatsapp/index';
 import express, { type Express, type Request, type Response } from 'express';
 
 export class SubmoduleFastyclawServerRoutes {
@@ -43,6 +46,16 @@ export class SubmoduleFastyclawServerRoutes {
     app.get('/telegram/status', (_req, res) => this.telegramStatus(res));
     app.get('/telegram/chats', (_req, res) => this.telegramListChats(res));
     app.delete('/telegram/chats/:chatId', (req, res) => this.telegramForgetChat(req, res));
+
+    app.get('/whatsapp/config', (_req, res) => this.whatsappGetConfig(res));
+    app.post('/whatsapp/config', (req, res) => this.whatsappSetConfig(req, res));
+    app.post('/whatsapp/start', (_req, res) => this.whatsappStart(res));
+    app.post('/whatsapp/stop', (_req, res) => this.whatsappStop(res));
+    app.get('/whatsapp/status', (_req, res) => this.whatsappStatus(res));
+    app.get('/whatsapp/qr', (_req, res) => this.whatsappQr(res));
+    app.post('/whatsapp/logout', (_req, res) => this.whatsappLogout(res));
+    app.get('/whatsapp/chats', (_req, res) => this.whatsappListChats(res));
+    app.delete('/whatsapp/chats/:jid', (req, res) => this.whatsappForgetChat(req, res));
   }
 
   private async createThread(res: Response): Promise<void> {
@@ -110,6 +123,14 @@ export class SubmoduleFastyclawServerRoutes {
         return;
       }
       patch.telegram = body.telegram as Partial<TelegramConfig>;
+    }
+
+    if (body.whatsapp !== undefined) {
+      if (!isStringMap(body.whatsapp)) {
+        res.status(400).json({ error: 'whatsapp must be an object' });
+        return;
+      }
+      patch.whatsapp = body.whatsapp as Partial<WhatsappConfig>;
     }
 
     this.config.patch(patch);
@@ -290,6 +311,78 @@ export class SubmoduleFastyclawServerRoutes {
       return;
     }
     await FastyclawTelegram.chats.forget(chatId);
+    res.json({ ok: true });
+  }
+
+  private whatsappGetConfig(res: Response): void {
+    res.json(this.config.get().whatsapp);
+  }
+
+  private async whatsappSetConfig(req: Request, res: Response): Promise<void> {
+    const body = (req.body ?? {}) as Partial<WhatsappConfig>;
+    const patch: Partial<WhatsappConfig> = {};
+    if (typeof body.enabled === 'boolean') patch.enabled = body.enabled;
+    if (Array.isArray(body.allowedJids)) {
+      if (!body.allowedJids.every((s) => typeof s === 'string')) {
+        res.status(400).json({ error: 'allowedJids must be strings' });
+        return;
+      }
+      patch.allowedJids = body.allowedJids as string[];
+    }
+    if (body.groupTrigger !== undefined) {
+      if (body.groupTrigger !== 'mention' && body.groupTrigger !== 'all') {
+        res.status(400).json({ error: `invalid groupTrigger: ${body.groupTrigger}` });
+        return;
+      }
+      patch.groupTrigger = body.groupTrigger as WhatsappGroupTrigger;
+    }
+    const next = this.config.patch({ whatsapp: patch });
+    await FastyclawWhatsapp.applyConfig(next.whatsapp);
+    res.json({ ok: true, config: next.whatsapp });
+  }
+
+  private async whatsappStart(res: Response): Promise<void> {
+    const next = this.config.patch({ whatsapp: { enabled: true } });
+    await FastyclawWhatsapp.applyConfig(next.whatsapp);
+    res.json({ ok: true, running: FastyclawWhatsapp.sock.isRunning() });
+  }
+
+  private async whatsappStop(res: Response): Promise<void> {
+    const next = this.config.patch({ whatsapp: { enabled: false } });
+    await FastyclawWhatsapp.applyConfig(next.whatsapp);
+    res.json({ ok: true, running: FastyclawWhatsapp.sock.isRunning() });
+  }
+
+  private whatsappStatus(res: Response): void {
+    res.json({
+      running: FastyclawWhatsapp.sock.isRunning(),
+      paired: FastyclawWhatsapp.sock.isPaired(),
+      ownJid: FastyclawWhatsapp.sock.ownJid(),
+      chatCount: FastyclawWhatsapp.chats.count(),
+    });
+  }
+
+  private whatsappQr(res: Response): void {
+    res.json({ qr: FastyclawWhatsapp.latestQr() });
+  }
+
+  private async whatsappLogout(res: Response): Promise<void> {
+    await FastyclawWhatsapp.sock.logout();
+    this.config.patch({ whatsapp: { enabled: false } });
+    res.json({ ok: true });
+  }
+
+  private whatsappListChats(res: Response): void {
+    res.json(FastyclawWhatsapp.chats.list());
+  }
+
+  private async whatsappForgetChat(req: Request, res: Response): Promise<void> {
+    const jid = decodeURIComponent(req.params.jid);
+    if (!jid) {
+      res.status(400).json({ error: 'invalid jid' });
+      return;
+    }
+    await FastyclawWhatsapp.chats.forget(jid);
     res.json({ ok: true });
   }
 }

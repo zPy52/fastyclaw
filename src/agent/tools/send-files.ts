@@ -53,7 +53,7 @@ function classify(filePath: string): { kind: SendFileKind; mediaType: string } {
 export function sendFiles(run: Run) {
   return tool({
     description:
-      'Deliver one or more files to the user (e.g. as Telegram attachments). Accepts absolute paths or paths relative to cwd. File type is inferred from extension so images, videos, audio, voice notes, and documents are all routed correctly. Use this after producing a file (screenshot, export, download) that the user should actually receive. Returns a short confirmation — the file bytes are NOT loaded back into the model context, so call a viewer tool (e.g. see_image, screenshot) separately if you also need to look at it.',
+      'Deliver one or more files to the user (Telegram/WhatsApp/etc. attachments). Accepts absolute paths or paths relative to cwd. File type is inferred from extension so images, videos, audio, voice notes, and documents are all routed correctly. Use this after producing a file (screenshot, export, download) that the user should actually receive. Returns a short confirmation — the file bytes are NOT loaded back into the model context, so call a viewer tool (e.g. see_image, screenshot) separately if you also need to look at it.',
     inputSchema: z.object({
       paths: z
         .array(z.string())

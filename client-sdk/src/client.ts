@@ -7,6 +7,7 @@ import type {
   FastyclawClientOptions,
 } from '@/types';
 import { FastyclawClientTelegram } from '@/telegram';
+import { FastyclawClientWhatsapp } from '@/whatsapp';
 import { FastyclawClientProviders } from '@/providers';
 
 const DEFAULT_BASE_URL = 'http://localhost:5177';
@@ -24,11 +25,13 @@ export class FastyclawClient {
   private readonly baseUrl: string;
   private lastThreadId: string | null = null;
   public readonly telegram: FastyclawClientTelegram;
+  public readonly whatsapp: FastyclawClientWhatsapp;
   public readonly providers: FastyclawClientProviders;
 
   public constructor(opts?: FastyclawClientOptions) {
     this.baseUrl = opts?.baseUrl ?? DEFAULT_BASE_URL;
     this.telegram = new FastyclawClientTelegram(this.baseUrl);
+    this.whatsapp = new FastyclawClientWhatsapp(this.baseUrl);
     this.providers = new FastyclawClientProviders(this.baseUrl);
   }
 

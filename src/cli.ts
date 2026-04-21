@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import qrcode from 'qrcode-terminal';
 import { FastyclawServer } from '@/server/index';
 import { Const } from '@/config/index';
 
@@ -26,6 +27,15 @@ function usage(): never {
     '  fastyclaw telegram stop',
     '  fastyclaw telegram chats',
     '  fastyclaw telegram forget <chatId>',
+    '  fastyclaw whatsapp status',
+    '  fastyclaw whatsapp qr',
+    '  fastyclaw whatsapp start',
+    '  fastyclaw whatsapp stop',
+    '  fastyclaw whatsapp logout',
+    '  fastyclaw whatsapp allow <jid> [<jid> ...]',
+    '  fastyclaw whatsapp trigger <mention|all>',
+    '  fastyclaw whatsapp chats',
+    '  fastyclaw whatsapp forget <jid>',
   ].join('\n'));
   process.exit(1);
 }
@@ -267,6 +277,78 @@ if (cmd === 'start') {
     console.error(err);
     process.exit(1);
   });
+} else if (cmd === 'whatsapp') {
+  handleWhatsapp(argv[1], argv.slice(2)).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
 } else {
   usage();
+}
+
+async function handleWhatsapp(sub: string | undefined, rest: string[]): Promise<void> {
+  switch (sub) {
+    case 'status': {
+      const out = await request('GET', '/whatsapp/status');
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'qr': {
+      for (let i = 0; i < 60; i++) {
+        const status = await request('GET', '/whatsapp/status') as { paired?: boolean; running?: boolean };
+        if (status.paired) { console.log('already paired'); return; }
+        const body = await request('GET', '/whatsapp/qr') as { qr: string | null };
+        if (body.qr) {
+          qrcode.generate(body.qr, { small: true }, (ascii: string) => console.log(ascii));
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+      console.error('no QR available; is whatsapp started?');
+      process.exit(1);
+    }
+    case 'start': {
+      const out = await request('POST', '/whatsapp/start');
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'stop': {
+      const out = await request('POST', '/whatsapp/stop');
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'logout': {
+      const out = await request('POST', '/whatsapp/logout');
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'allow': {
+      if (rest.length === 0) usage();
+      const jids = rest.map((s) => s.replace(/,$/, '')).filter((s) => s.length > 0);
+      const out = await request('POST', '/whatsapp/config', { allowedJids: jids });
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'trigger': {
+      const mode = rest[0];
+      if (mode !== 'mention' && mode !== 'all') usage();
+      const out = await request('POST', '/whatsapp/config', { groupTrigger: mode });
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'chats': {
+      const out = await request('GET', '/whatsapp/chats');
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'forget': {
+      const jid = rest[0];
+      if (!jid) usage();
+      const out = await request('DELETE', `/whatsapp/chats/${encodeURIComponent(jid)}`);
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    default:
+      usage();
+  }
 }

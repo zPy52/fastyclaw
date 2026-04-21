@@ -5,6 +5,7 @@ import { AgentSkills } from '@/skills/index';
 import { SubmoduleFastyclawServerRoutes } from '@/server/routes';
 import { SubmoduleFastyclawServerThreads } from '@/server/threads';
 import { FastyclawTelegram } from '@/telegram/index';
+import { FastyclawWhatsapp } from '@/whatsapp/index';
 
 function findAvailablePort(port: number): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -31,6 +32,8 @@ export class FastyclawServer {
     await AgentSkills.loader.load();
     await FastyclawTelegram.chats.load();
     await FastyclawTelegram.applyConfig(FastyclawServer.config.get().telegram);
+    await FastyclawWhatsapp.chats.load();
+    await FastyclawWhatsapp.applyConfig(FastyclawServer.config.get().whatsapp);
     const app = express();
     FastyclawServer.routes.mount(app);
     const resolvedPort = await findAvailablePort(port ?? Const.DEFAULT_PORT);
@@ -40,7 +43,10 @@ export class FastyclawServer {
     console.log(`fastyclaw listening on http://localhost:${resolvedPort}`);
 
     const shutdown = () => {
-      void FastyclawTelegram.shutdown().finally(() => process.exit(0));
+      void Promise.allSettled([
+        FastyclawTelegram.shutdown(),
+        FastyclawWhatsapp.shutdown(),
+      ]).finally(() => process.exit(0));
     };
     process.once('SIGINT', shutdown);
     process.once('SIGTERM', shutdown);

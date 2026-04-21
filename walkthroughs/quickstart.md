@@ -262,6 +262,133 @@ await client.telegram.enable();
 console.log(await client.telegram.status());
 ```
 
+## WhatsApp
+
+Expose the running agent to a WhatsApp account so you can chat with it from
+your phone or a group. Each WhatsApp `jid` maps 1:1 to a persistent fastyclaw
+thread, so context survives restarts.
+
+### 1. Start the session
+
+Make sure the server is already running (`npm start`). Then start the WhatsApp
+socket:
+
+```bash
+fastyclaw whatsapp start
+fastyclaw whatsapp status
+```
+
+The status response shows whether the socket is running and paired:
+
+```json
+{
+  "running": true,
+  "paired": false,
+  "ownJid": null,
+  "chatCount": 0
+}
+```
+
+### 2. Pair with Linked Devices
+
+Run the QR helper in another terminal:
+
+```bash
+fastyclaw whatsapp qr
+```
+
+If the session is not paired yet, it prints an ASCII QR code. Open WhatsApp on
+your phone and scan it from `Linked Devices`.
+
+If you prefer HTTP, poll the same data directly:
+
+```bash
+curl -s -X POST http://127.0.0.1:5177/whatsapp/start
+curl -s http://127.0.0.1:5177/whatsapp/status
+curl -s http://127.0.0.1:5177/whatsapp/qr
+```
+
+The QR endpoint returns `{ "qr": "<payload>" }` while pairing is in progress.
+
+### 3. Send and receive messages
+
+Once the device is paired, message the connected WhatsApp account from your
+phone. The bot replies in the same chat, and the first message from a `jid`
+creates the thread mapping automatically.
+
+Check the current chat map with:
+
+```bash
+fastyclaw whatsapp chats
+```
+
+HTTP equivalent:
+
+```bash
+curl -s http://127.0.0.1:5177/whatsapp/chats
+```
+
+### 4. Control who can talk to it
+
+By default, any chat can reach the agent. To whitelist specific WhatsApp jids:
+
+```bash
+fastyclaw whatsapp allow 34612345678@s.whatsapp.net
+fastyclaw whatsapp allow 34612345678@s.whatsapp.net 34687654321@s.whatsapp.net
+```
+
+For groups, switch between mention-only and reply-to-every-message behavior:
+
+```bash
+fastyclaw whatsapp trigger mention
+fastyclaw whatsapp trigger all
+```
+
+The same updates over HTTP go through `/whatsapp/config`:
+
+```bash
+curl -s -X POST http://127.0.0.1:5177/whatsapp/config \
+  -H 'Content-Type: application/json' \
+  -d '{"allowedJids":["34612345678@s.whatsapp.net"]}'
+
+curl -s -X POST http://127.0.0.1:5177/whatsapp/config \
+  -H 'Content-Type: application/json' \
+  -d '{"groupTrigger":"all"}'
+```
+
+### 5. Stop, forget, or log out
+
+```bash
+fastyclaw whatsapp stop
+fastyclaw whatsapp logout
+fastyclaw whatsapp forget 34612345678@s.whatsapp.net
+```
+
+- `stop` pauses the socket but keeps the paired session on disk.
+- `logout` clears the WhatsApp auth state and forces a fresh QR on the next start.
+- `forget` removes one chat-to-thread mapping without deleting the thread itself.
+
+HTTP equivalents:
+
+```bash
+curl -s -X POST http://127.0.0.1:5177/whatsapp/stop
+curl -s -X POST http://127.0.0.1:5177/whatsapp/logout
+curl -s -X DELETE http://127.0.0.1:5177/whatsapp/chats/34612345678%40s.whatsapp.net
+```
+
+### From the client SDK
+
+```ts
+import { FastyclawClient } from 'fastyclaw-client';
+
+const client = new FastyclawClient();
+await client.whatsapp.enable();
+console.log(await client.whatsapp.status());
+console.log(await client.whatsapp.qr());
+await client.whatsapp.setAllowedJids(['34612345678@s.whatsapp.net']);
+await client.whatsapp.setGroupTrigger('mention');
+```
+
 ## Notes
 
 - On a clean install, fastyclaw auto-detects the provider from env and falls
