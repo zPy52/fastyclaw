@@ -1,6 +1,8 @@
 export { FastyclawClient } from '@/client';
 export { FastyclawClientTelegram } from '@/telegram';
 export { FastyclawClientWhatsapp } from '@/whatsapp';
+export { FastyclawClientSlack } from '@/slack';
+export { FastyclawClientDiscord } from '@/discord';
 export { FastyclawClientProviders } from '@/providers';
 export type {
   ServerEvent,
@@ -22,4 +24,14 @@ export type {
   WhatsappStatus,
   WhatsappChatListItem,
   WhatsappChatKind,
+  SlackConfig,
+  SlackChannelTrigger,
+  SlackStatus,
+  SlackChatListItem,
+  SlackChannelKind,
+  DiscordConfig,
+  DiscordGroupTrigger,
+  DiscordStatus,
+  DiscordChatListItem,
+  DiscordChatKind,
 } from '@/types';

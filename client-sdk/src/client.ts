@@ -8,6 +8,8 @@ import type {
 } from '@/types';
 import { FastyclawClientTelegram } from '@/telegram';
 import { FastyclawClientWhatsapp } from '@/whatsapp';
+import { FastyclawClientSlack } from '@/slack';
+import { FastyclawClientDiscord } from '@/discord';
 import { FastyclawClientProviders } from '@/providers';
 
 const DEFAULT_BASE_URL = 'http://localhost:5177';
@@ -26,12 +28,16 @@ export class FastyclawClient {
   private lastThreadId: string | null = null;
   public readonly telegram: FastyclawClientTelegram;
   public readonly whatsapp: FastyclawClientWhatsapp;
+  public readonly slack: FastyclawClientSlack;
+  public readonly discord: FastyclawClientDiscord;
   public readonly providers: FastyclawClientProviders;
 
   public constructor(opts?: FastyclawClientOptions) {
     this.baseUrl = opts?.baseUrl ?? DEFAULT_BASE_URL;
     this.telegram = new FastyclawClientTelegram(this.baseUrl);
     this.whatsapp = new FastyclawClientWhatsapp(this.baseUrl);
+    this.slack = new FastyclawClientSlack(this.baseUrl);
+    this.discord = new FastyclawClientDiscord(this.baseUrl);
     this.providers = new FastyclawClientProviders(this.baseUrl);
   }
 

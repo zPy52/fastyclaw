@@ -5,8 +5,12 @@ import { AgentRuntime } from '@/agent/index';
 import { createRun } from '@/server/run';
 import type {
   CallOptions,
+  DiscordConfig,
+  DiscordGroupTrigger,
   ProviderConfig,
   ProviderId,
+  SlackChannelTrigger,
+  SlackConfig,
   TelegramConfig,
   TelegramGroupTrigger,
   Thread,
@@ -17,6 +21,8 @@ import type { AppConfigPatch, AppConfigStore } from '@/config/index';
 import type { SubmoduleFastyclawServerThreads } from '@/server/threads';
 import { FastyclawTelegram } from '@/telegram/index';
 import { FastyclawWhatsapp } from '@/whatsapp/index';
+import { FastyclawSlack } from '@/slack/index';
+import { FastyclawDiscord } from '@/discord/index';
 import express, { type Express, type Request, type Response } from 'express';
 
 export class SubmoduleFastyclawServerRoutes {
@@ -56,6 +62,22 @@ export class SubmoduleFastyclawServerRoutes {
     app.post('/whatsapp/logout', (_req, res) => this.whatsappLogout(res));
     app.get('/whatsapp/chats', (_req, res) => this.whatsappListChats(res));
     app.delete('/whatsapp/chats/:jid', (req, res) => this.whatsappForgetChat(req, res));
+
+    app.get('/slack/config', (_req, res) => this.slackGetConfig(res));
+    app.post('/slack/config', (req, res) => this.slackSetConfig(req, res));
+    app.post('/slack/start', (_req, res) => this.slackStart(res));
+    app.post('/slack/stop', (_req, res) => this.slackStop(res));
+    app.get('/slack/status', (_req, res) => this.slackStatus(res));
+    app.get('/slack/chats', (_req, res) => this.slackListChats(res));
+    app.delete('/slack/chats/:channelId', (req, res) => this.slackForgetChat(req, res));
+
+    app.get('/discord/config', (_req, res) => this.discordGetConfig(res));
+    app.post('/discord/config', (req, res) => this.discordSetConfig(req, res));
+    app.post('/discord/start', (_req, res) => this.discordStart(res));
+    app.post('/discord/stop', (_req, res) => this.discordStop(res));
+    app.get('/discord/status', (_req, res) => this.discordStatus(res));
+    app.get('/discord/chats', (_req, res) => this.discordListChats(res));
+    app.delete('/discord/chats/:channelId', (req, res) => this.discordForgetChat(req, res));
   }
 
   private async createThread(res: Response): Promise<void> {
@@ -131,6 +153,22 @@ export class SubmoduleFastyclawServerRoutes {
         return;
       }
       patch.whatsapp = body.whatsapp as Partial<WhatsappConfig>;
+    }
+
+    if (body.slack !== undefined) {
+      if (!isStringMap(body.slack)) {
+        res.status(400).json({ error: 'slack must be an object' });
+        return;
+      }
+      patch.slack = body.slack as Partial<SlackConfig>;
+    }
+
+    if (body.discord !== undefined) {
+      if (!isStringMap(body.discord)) {
+        res.status(400).json({ error: 'discord must be an object' });
+        return;
+      }
+      patch.discord = body.discord as Partial<DiscordConfig>;
     }
 
     this.config.patch(patch);
@@ -383,6 +421,156 @@ export class SubmoduleFastyclawServerRoutes {
       return;
     }
     await FastyclawWhatsapp.chats.forget(jid);
+    res.json({ ok: true });
+  }
+
+  private maskSlackToken(token: string | null): string | null {
+    if (!token) return null;
+    if (token.length <= 8) return '…';
+    return `${token.slice(0, 4)}…${token.slice(-4)}`;
+  }
+
+  private maskedSlack(cfg: SlackConfig): SlackConfig {
+    return {
+      ...cfg,
+      botToken: this.maskSlackToken(cfg.botToken),
+      appToken: this.maskSlackToken(cfg.appToken),
+    };
+  }
+
+  private slackGetConfig(res: Response): void {
+    res.json(this.maskedSlack(this.config.get().slack));
+  }
+
+  private async slackSetConfig(req: Request, res: Response): Promise<void> {
+    const body = (req.body ?? {}) as Partial<SlackConfig>;
+    const patch: Partial<SlackConfig> = {};
+    if (body.botToken === null || typeof body.botToken === 'string') patch.botToken = body.botToken;
+    if (body.appToken === null || typeof body.appToken === 'string') patch.appToken = body.appToken;
+    if (typeof body.enabled === 'boolean') patch.enabled = body.enabled;
+    if (Array.isArray(body.allowedUserIds)) {
+      if (!body.allowedUserIds.every((s) => typeof s === 'string')) {
+        res.status(400).json({ error: 'allowedUserIds must be strings' });
+        return;
+      }
+      patch.allowedUserIds = body.allowedUserIds as string[];
+    }
+    if (body.channelTrigger !== undefined) {
+      if (body.channelTrigger !== 'mention' && body.channelTrigger !== 'all') {
+        res.status(400).json({ error: `invalid channelTrigger: ${body.channelTrigger}` });
+        return;
+      }
+      patch.channelTrigger = body.channelTrigger as SlackChannelTrigger;
+    }
+    const next = this.config.patch({ slack: patch });
+    await FastyclawSlack.applyConfig(next.slack);
+    res.json({ ok: true, config: this.maskedSlack(next.slack) });
+  }
+
+  private async slackStart(res: Response): Promise<void> {
+    const current = this.config.get().slack;
+    if (!current.botToken || !current.appToken) {
+      res.status(400).json({ error: 'both botToken and appToken are required' });
+      return;
+    }
+    const next = this.config.patch({ slack: { enabled: true } });
+    await FastyclawSlack.applyConfig(next.slack);
+    res.json({ ok: true, running: FastyclawSlack.bot.isRunning() });
+  }
+
+  private async slackStop(res: Response): Promise<void> {
+    const next = this.config.patch({ slack: { enabled: false } });
+    await FastyclawSlack.applyConfig(next.slack);
+    res.json({ ok: true, running: FastyclawSlack.bot.isRunning() });
+  }
+
+  private slackStatus(res: Response): void {
+    res.json({
+      running: FastyclawSlack.bot.isRunning(),
+      botUserId: FastyclawSlack.bot.botUserId(),
+      chatCount: FastyclawSlack.chats.count(),
+    });
+  }
+
+  private slackListChats(res: Response): void {
+    res.json(FastyclawSlack.chats.list());
+  }
+
+  private async slackForgetChat(req: Request, res: Response): Promise<void> {
+    const channelId = decodeURIComponent(req.params.channelId);
+    if (!channelId) {
+      res.status(400).json({ error: 'invalid channelId' });
+      return;
+    }
+    await FastyclawSlack.chats.forget(channelId);
+    res.json({ ok: true });
+  }
+
+  private discordGetConfig(res: Response): void {
+    const cfg = this.config.get().discord;
+    res.json({ ...cfg, token: this.maskToken(cfg.token) });
+  }
+
+  private async discordSetConfig(req: Request, res: Response): Promise<void> {
+    const body = (req.body ?? {}) as Partial<DiscordConfig>;
+    const patch: Partial<DiscordConfig> = {};
+    if (body.token === null || typeof body.token === 'string') patch.token = body.token;
+    if (typeof body.enabled === 'boolean') patch.enabled = body.enabled;
+    if (Array.isArray(body.allowedUserIds)) {
+      if (!body.allowedUserIds.every((s) => typeof s === 'string')) {
+        res.status(400).json({ error: 'allowedUserIds must be strings' });
+        return;
+      }
+      patch.allowedUserIds = body.allowedUserIds as string[];
+    }
+    if (body.groupTrigger !== undefined) {
+      if (body.groupTrigger !== 'mention' && body.groupTrigger !== 'all') {
+        res.status(400).json({ error: `invalid groupTrigger: ${body.groupTrigger}` });
+        return;
+      }
+      patch.groupTrigger = body.groupTrigger as DiscordGroupTrigger;
+    }
+    const next = this.config.patch({ discord: patch });
+    await FastyclawDiscord.applyConfig(next.discord);
+    res.json({ ok: true, config: { ...next.discord, token: this.maskToken(next.discord.token) } });
+  }
+
+  private async discordStart(res: Response): Promise<void> {
+    const current = this.config.get().discord;
+    if (!current.token) {
+      res.status(400).json({ error: 'no token configured' });
+      return;
+    }
+    const next = this.config.patch({ discord: { enabled: true } });
+    await FastyclawDiscord.applyConfig(next.discord);
+    res.json({ ok: true, running: FastyclawDiscord.client.isRunning() });
+  }
+
+  private async discordStop(res: Response): Promise<void> {
+    const next = this.config.patch({ discord: { enabled: false } });
+    await FastyclawDiscord.applyConfig(next.discord);
+    res.json({ ok: true, running: FastyclawDiscord.client.isRunning() });
+  }
+
+  private discordStatus(res: Response): void {
+    res.json({
+      running: FastyclawDiscord.client.isRunning(),
+      botUser: FastyclawDiscord.client.botUser(),
+      chatCount: FastyclawDiscord.chats.count(),
+    });
+  }
+
+  private discordListChats(res: Response): void {
+    res.json(FastyclawDiscord.chats.list());
+  }
+
+  private async discordForgetChat(req: Request, res: Response): Promise<void> {
+    const channelId = decodeURIComponent(req.params.channelId);
+    if (!channelId) {
+      res.status(400).json({ error: 'invalid channelId' });
+      return;
+    }
+    await FastyclawDiscord.chats.forget(channelId);
     res.json({ ok: true });
   }
 }

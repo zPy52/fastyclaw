@@ -78,6 +78,25 @@ export interface WhatsappConfig {
   groupTrigger: WhatsappGroupTrigger;
 }
 
+export type SlackChannelTrigger = 'mention' | 'all';
+
+export interface SlackConfig {
+  botToken: string | null;
+  appToken: string | null;
+  enabled: boolean;
+  allowedUserIds: string[];
+  channelTrigger: SlackChannelTrigger;
+}
+
+export type DiscordGroupTrigger = 'mention' | 'all';
+
+export interface DiscordConfig {
+  token: string | null;
+  enabled: boolean;
+  allowedUserIds: string[];
+  groupTrigger: DiscordGroupTrigger;
+}
+
 export interface AppConfig {
   model: string;
   provider: ProviderConfig;
@@ -86,6 +105,8 @@ export interface AppConfig {
   cwd: string;
   telegram: TelegramConfig;
   whatsapp: WhatsappConfig;
+  slack: SlackConfig;
+  discord: DiscordConfig;
 }
 
 export interface Thread {

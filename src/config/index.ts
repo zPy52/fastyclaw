@@ -4,8 +4,12 @@ import fs from 'node:fs';
 import type {
   AppConfig,
   CallOptions,
+  DiscordConfig,
+  DiscordGroupTrigger,
   ProviderConfig,
   ProviderId,
+  SlackChannelTrigger,
+  SlackConfig,
   TelegramConfig,
   TelegramGroupTrigger,
   WhatsappConfig,
@@ -19,6 +23,8 @@ const THREADS_DIR = path.join(ROOT_DIR, 'threads');
 const TELEGRAM_CHATS_PATH = path.join(ROOT_DIR, 'telegram-chats.json');
 const WHATSAPP_AUTH_DIR = path.join(ROOT_DIR, 'whatsapp-auth');
 const WHATSAPP_CHATS_PATH = path.join(ROOT_DIR, 'whatsapp-chats.json');
+const SLACK_CHATS_PATH = path.join(ROOT_DIR, 'slack-chats.json');
+const DISCORD_CHATS_PATH = path.join(ROOT_DIR, 'discord-chats.json');
 
 const DEFAULT_TELEGRAM: TelegramConfig = {
   token: null,
@@ -33,6 +39,21 @@ const DEFAULT_WHATSAPP: WhatsappConfig = {
   groupTrigger: 'mention',
 };
 
+const DEFAULT_SLACK: SlackConfig = {
+  botToken: null,
+  appToken: null,
+  enabled: false,
+  allowedUserIds: [],
+  channelTrigger: 'mention',
+};
+
+const DEFAULT_DISCORD: DiscordConfig = {
+  token: null,
+  enabled: false,
+  allowedUserIds: [],
+  groupTrigger: 'mention',
+};
+
 export interface AppConfigPatch {
   model?: string;
   provider?: Partial<ProviderConfig> & { id?: ProviderId };
@@ -41,6 +62,8 @@ export interface AppConfigPatch {
   cwd?: string;
   telegram?: Partial<TelegramConfig>;
   whatsapp?: Partial<WhatsappConfig>;
+  slack?: Partial<SlackConfig>;
+  discord?: Partial<DiscordConfig>;
 }
 
 export class Const {
@@ -56,6 +79,8 @@ export class Const {
   public static readonly telegramChatsPath: string = TELEGRAM_CHATS_PATH;
   public static readonly whatsappAuthDir: string = WHATSAPP_AUTH_DIR;
   public static readonly whatsappChatsPath: string = WHATSAPP_CHATS_PATH;
+  public static readonly slackChatsPath: string = SLACK_CHATS_PATH;
+  public static readonly discordChatsPath: string = DISCORD_CHATS_PATH;
   public static readonly browserProfileDir: string =
     process.env.FASTYCLAW_BROWSER_PROFILE ?? path.join(HOME, '.fastyclaw', 'browser-profile');
   public static readonly browserCdpUrl: string | undefined = process.env.FASTYCLAW_BROWSER_CDP_URL;
@@ -98,6 +123,8 @@ export class AppConfigStore {
       cwd: process.cwd(),
       telegram: { ...DEFAULT_TELEGRAM },
       whatsapp: { ...DEFAULT_WHATSAPP },
+      slack: { ...DEFAULT_SLACK },
+      discord: { ...DEFAULT_DISCORD },
     };
   }
 
@@ -118,8 +145,10 @@ export class AppConfigStore {
     const cwd = typeof raw.cwd === 'string' ? raw.cwd : process.cwd();
     const telegram = mergeTelegram(DEFAULT_TELEGRAM, raw.telegram as Partial<TelegramConfig> | undefined);
     const whatsapp = mergeWhatsapp(DEFAULT_WHATSAPP, raw.whatsapp as Partial<WhatsappConfig> | undefined);
+    const slack = mergeSlack(DEFAULT_SLACK, raw.slack as Partial<SlackConfig> | undefined);
+    const discord = mergeDiscord(DEFAULT_DISCORD, raw.discord as Partial<DiscordConfig> | undefined);
 
-    return { model, provider, providerOptions, callOptions, cwd, telegram, whatsapp };
+    return { model, provider, providerOptions, callOptions, cwd, telegram, whatsapp, slack, discord };
   }
 
   private write(config: AppConfig): void {
@@ -134,6 +163,12 @@ export class AppConfigStore {
     const clone = structuredClone(this.config);
     clone.provider = maskProvider(clone.provider);
     clone.telegram = { ...clone.telegram, token: maskSecret(clone.telegram.token) };
+    clone.slack = {
+      ...clone.slack,
+      botToken: maskSecret(clone.slack.botToken),
+      appToken: maskSecret(clone.slack.appToken),
+    };
+    clone.discord = { ...clone.discord, token: maskSecret(clone.discord.token) };
     return clone;
   }
 
@@ -175,6 +210,12 @@ export class AppConfigStore {
     }
     if (patch.whatsapp) {
       this.config.whatsapp = mergeWhatsapp(this.config.whatsapp, patch.whatsapp);
+    }
+    if (patch.slack) {
+      this.config.slack = mergeSlack(this.config.slack, patch.slack);
+    }
+    if (patch.discord) {
+      this.config.discord = mergeDiscord(this.config.discord, patch.discord);
     }
     this.write(this.config);
     return this.get();
@@ -259,6 +300,35 @@ function mergeWhatsapp(base: WhatsappConfig, patch: Partial<WhatsappConfig> | un
   }
   if (patch.groupTrigger === 'mention' || patch.groupTrigger === 'all') {
     merged.groupTrigger = patch.groupTrigger as WhatsappGroupTrigger;
+  }
+  return merged;
+}
+
+function mergeSlack(base: SlackConfig, patch: Partial<SlackConfig> | undefined): SlackConfig {
+  const merged: SlackConfig = { ...base };
+  if (!patch) return merged;
+  if (patch.botToken === null || typeof patch.botToken === 'string') merged.botToken = patch.botToken;
+  if (patch.appToken === null || typeof patch.appToken === 'string') merged.appToken = patch.appToken;
+  if (typeof patch.enabled === 'boolean') merged.enabled = patch.enabled;
+  if (Array.isArray(patch.allowedUserIds)) {
+    merged.allowedUserIds = patch.allowedUserIds.filter((s): s is string => typeof s === 'string' && s.length > 0);
+  }
+  if (patch.channelTrigger === 'mention' || patch.channelTrigger === 'all') {
+    merged.channelTrigger = patch.channelTrigger as SlackChannelTrigger;
+  }
+  return merged;
+}
+
+function mergeDiscord(base: DiscordConfig, patch: Partial<DiscordConfig> | undefined): DiscordConfig {
+  const merged: DiscordConfig = { ...base };
+  if (!patch) return merged;
+  if (patch.token === null || typeof patch.token === 'string') merged.token = patch.token;
+  if (typeof patch.enabled === 'boolean') merged.enabled = patch.enabled;
+  if (Array.isArray(patch.allowedUserIds)) {
+    merged.allowedUserIds = patch.allowedUserIds.filter((s): s is string => typeof s === 'string' && s.length > 0);
+  }
+  if (patch.groupTrigger === 'mention' || patch.groupTrigger === 'all') {
+    merged.groupTrigger = patch.groupTrigger as DiscordGroupTrigger;
   }
   return merged;
 }

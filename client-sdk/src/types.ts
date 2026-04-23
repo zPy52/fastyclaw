@@ -96,6 +96,55 @@ export interface WhatsappStatus {
   chatCount: number;
 }
 
+export type SlackChannelTrigger = 'mention' | 'all';
+
+export interface SlackConfig {
+  botToken: string | null;
+  appToken: string | null;
+  enabled: boolean;
+  allowedUserIds: string[];
+  channelTrigger: SlackChannelTrigger;
+}
+
+export type SlackChannelKind = 'im' | 'mpim' | 'channel' | 'group';
+
+export interface SlackChatListItem {
+  channelId: string;
+  threadId: string;
+  title: string;
+  kind: SlackChannelKind;
+}
+
+export interface SlackStatus {
+  running: boolean;
+  botUserId: string | null;
+  chatCount: number;
+}
+
+export type DiscordGroupTrigger = 'mention' | 'all';
+
+export interface DiscordConfig {
+  token: string | null;
+  enabled: boolean;
+  allowedUserIds: string[];
+  groupTrigger: DiscordGroupTrigger;
+}
+
+export type DiscordChatKind = 'dm' | 'guild' | 'thread';
+
+export interface DiscordChatListItem {
+  channelId: string;
+  threadId: string;
+  title: string;
+  kind: DiscordChatKind;
+}
+
+export interface DiscordStatus {
+  running: boolean;
+  botUser: { id: string; tag: string } | null;
+  chatCount: number;
+}
+
 export interface AppConfig {
   model: string;
   provider: ProviderConfig;
@@ -104,6 +153,8 @@ export interface AppConfig {
   cwd: string;
   telegram: TelegramConfig;
   whatsapp: WhatsappConfig;
+  slack: SlackConfig;
+  discord: DiscordConfig;
 }
 
 export type ChatKind = 'private' | 'group' | 'supergroup' | 'channel';

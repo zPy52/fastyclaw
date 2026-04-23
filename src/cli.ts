@@ -36,6 +36,23 @@ function usage(): never {
     '  fastyclaw whatsapp trigger <mention|all>',
     '  fastyclaw whatsapp chats',
     '  fastyclaw whatsapp forget <jid>',
+    '  fastyclaw slack status',
+    '  fastyclaw slack set-bot-token <xoxb-…>',
+    '  fastyclaw slack set-app-token <xapp-…>',
+    '  fastyclaw slack allow <userId> [<userId> ...]',
+    '  fastyclaw slack trigger <mention|all>',
+    '  fastyclaw slack start',
+    '  fastyclaw slack stop',
+    '  fastyclaw slack chats',
+    '  fastyclaw slack forget <channelId>',
+    '  fastyclaw discord status',
+    '  fastyclaw discord set-token <token>',
+    '  fastyclaw discord allow <userId> [<userId> ...]',
+    '  fastyclaw discord trigger <mention|all>',
+    '  fastyclaw discord start',
+    '  fastyclaw discord stop',
+    '  fastyclaw discord chats',
+    '  fastyclaw discord forget <channelId>',
   ].join('\n'));
   process.exit(1);
 }
@@ -282,6 +299,16 @@ if (cmd === 'start') {
     console.error(err);
     process.exit(1);
   });
+} else if (cmd === 'slack') {
+  handleSlack(argv[1], argv.slice(2)).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (cmd === 'discord') {
+  handleDiscord(argv[1], argv.slice(2)).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
 } else {
   usage();
 }
@@ -345,6 +372,123 @@ async function handleWhatsapp(sub: string | undefined, rest: string[]): Promise<
       const jid = rest[0];
       if (!jid) usage();
       const out = await request('DELETE', `/whatsapp/chats/${encodeURIComponent(jid)}`);
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    default:
+      usage();
+  }
+}
+
+async function handleSlack(sub: string | undefined, rest: string[]): Promise<void> {
+  switch (sub) {
+    case 'status': {
+      const out = await request('GET', '/slack/status');
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'set-bot-token': {
+      const token = rest[0];
+      if (!token) usage();
+      const out = await request('POST', '/slack/config', { botToken: token });
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'set-app-token': {
+      const token = rest[0];
+      if (!token) usage();
+      const out = await request('POST', '/slack/config', { appToken: token });
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'allow': {
+      if (rest.length === 0) usage();
+      const ids = rest.map((s) => s.replace(/,$/, '')).filter((s) => s.length > 0);
+      const out = await request('POST', '/slack/config', { allowedUserIds: ids });
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'trigger': {
+      const mode = rest[0];
+      if (mode !== 'mention' && mode !== 'all') usage();
+      const out = await request('POST', '/slack/config', { channelTrigger: mode });
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'start': {
+      const out = await request('POST', '/slack/start');
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'stop': {
+      const out = await request('POST', '/slack/stop');
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'chats': {
+      const out = await request('GET', '/slack/chats');
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'forget': {
+      const id = rest[0];
+      if (!id) usage();
+      const out = await request('DELETE', `/slack/chats/${encodeURIComponent(id)}`);
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    default:
+      usage();
+  }
+}
+
+async function handleDiscord(sub: string | undefined, rest: string[]): Promise<void> {
+  switch (sub) {
+    case 'status': {
+      const out = await request('GET', '/discord/status');
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'set-token': {
+      const token = rest[0];
+      if (!token) usage();
+      const out = await request('POST', '/discord/config', { token });
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'allow': {
+      if (rest.length === 0) usage();
+      const ids = rest.map((s) => s.replace(/,$/, '')).filter((s) => s.length > 0);
+      const out = await request('POST', '/discord/config', { allowedUserIds: ids });
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'trigger': {
+      const mode = rest[0];
+      if (mode !== 'mention' && mode !== 'all') usage();
+      const out = await request('POST', '/discord/config', { groupTrigger: mode });
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'start': {
+      const out = await request('POST', '/discord/start');
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'stop': {
+      const out = await request('POST', '/discord/stop');
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'chats': {
+      const out = await request('GET', '/discord/chats');
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'forget': {
+      const id = rest[0];
+      if (!id) usage();
+      const out = await request('DELETE', `/discord/chats/${encodeURIComponent(id)}`);
       console.log(JSON.stringify(out, null, 2));
       return;
     }

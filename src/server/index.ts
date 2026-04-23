@@ -6,6 +6,8 @@ import { SubmoduleFastyclawServerRoutes } from '@/server/routes';
 import { SubmoduleFastyclawServerThreads } from '@/server/threads';
 import { FastyclawTelegram } from '@/telegram/index';
 import { FastyclawWhatsapp } from '@/whatsapp/index';
+import { FastyclawSlack } from '@/slack/index';
+import { FastyclawDiscord } from '@/discord/index';
 
 function findAvailablePort(port: number): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -34,6 +36,10 @@ export class FastyclawServer {
     await FastyclawTelegram.applyConfig(FastyclawServer.config.get().telegram);
     await FastyclawWhatsapp.chats.load();
     await FastyclawWhatsapp.applyConfig(FastyclawServer.config.get().whatsapp);
+    await FastyclawSlack.chats.load();
+    await FastyclawSlack.applyConfig(FastyclawServer.config.get().slack);
+    await FastyclawDiscord.chats.load();
+    await FastyclawDiscord.applyConfig(FastyclawServer.config.get().discord);
     const app = express();
     FastyclawServer.routes.mount(app);
     const resolvedPort = await findAvailablePort(port ?? Const.DEFAULT_PORT);
@@ -46,6 +52,8 @@ export class FastyclawServer {
       void Promise.allSettled([
         FastyclawTelegram.shutdown(),
         FastyclawWhatsapp.shutdown(),
+        FastyclawSlack.shutdown(),
+        FastyclawDiscord.shutdown(),
       ]).finally(() => process.exit(0));
     };
     process.once('SIGINT', shutdown);
