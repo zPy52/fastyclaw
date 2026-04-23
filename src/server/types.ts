@@ -98,6 +98,7 @@ export interface DiscordConfig {
 }
 
 export interface AppConfig {
+  authToken: string | null;
   model: string;
   provider: ProviderConfig;
   providerOptions: Record<string, Record<string, unknown>>;

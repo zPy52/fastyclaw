@@ -146,6 +146,7 @@ export interface DiscordStatus {
 }
 
 export interface AppConfig {
+  authToken: string | null;
   model: string;
   provider: ProviderConfig;
   providerOptions: Record<string, Record<string, unknown>>;
@@ -174,4 +175,5 @@ export interface TelegramStatus {
 
 export interface FastyclawClientOptions {
   baseUrl?: string;
+  authToken?: string;
 }

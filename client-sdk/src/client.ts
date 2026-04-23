@@ -5,12 +5,12 @@ import type {
   ProviderConfig,
   ServerEvent,
   FastyclawClientOptions,
-} from '@/types';
-import { FastyclawClientTelegram } from '@/telegram';
-import { FastyclawClientWhatsapp } from '@/whatsapp';
-import { FastyclawClientSlack } from '@/slack';
-import { FastyclawClientDiscord } from '@/discord';
-import { FastyclawClientProviders } from '@/providers';
+} from './types.js';
+import { FastyclawClientTelegram } from './telegram.js';
+import { FastyclawClientWhatsapp } from './whatsapp.js';
+import { FastyclawClientSlack } from './slack.js';
+import { FastyclawClientDiscord } from './discord.js';
+import { FastyclawClientProviders } from './providers.js';
 
 const DEFAULT_BASE_URL = 'http://localhost:5177';
 
@@ -25,6 +25,7 @@ export interface MessageStream extends AsyncIterable<ServerEvent> {
 
 export class FastyclawClient {
   private readonly baseUrl: string;
+  private readonly authHeaders: Record<string, string>;
   private lastThreadId: string | null = null;
   public readonly telegram: FastyclawClientTelegram;
   public readonly whatsapp: FastyclawClientWhatsapp;
@@ -34,11 +35,12 @@ export class FastyclawClient {
 
   public constructor(opts?: FastyclawClientOptions) {
     this.baseUrl = opts?.baseUrl ?? DEFAULT_BASE_URL;
-    this.telegram = new FastyclawClientTelegram(this.baseUrl);
-    this.whatsapp = new FastyclawClientWhatsapp(this.baseUrl);
-    this.slack = new FastyclawClientSlack(this.baseUrl);
-    this.discord = new FastyclawClientDiscord(this.baseUrl);
-    this.providers = new FastyclawClientProviders(this.baseUrl);
+    this.authHeaders = opts?.authToken ? { Authorization: `Bearer ${opts.authToken}` } : {};
+    this.telegram = new FastyclawClientTelegram(this.baseUrl, this.authHeaders);
+    this.whatsapp = new FastyclawClientWhatsapp(this.baseUrl, this.authHeaders);
+    this.slack = new FastyclawClientSlack(this.baseUrl, this.authHeaders);
+    this.discord = new FastyclawClientDiscord(this.baseUrl, this.authHeaders);
+    this.providers = new FastyclawClientProviders(this.baseUrl, this.authHeaders);
   }
 
   /** The thread id most recently created or used by this client. */
@@ -48,7 +50,7 @@ export class FastyclawClient {
 
   /** Explicitly create a new empty thread and return its id. */
   public async createThread(): Promise<string> {
-    const res = await fetch(`${this.baseUrl}/threads`, { method: 'POST' });
+    const res = await fetch(`${this.baseUrl}/threads`, { method: 'POST', headers: this.authHeaders });
     if (!res.ok) throw new Error(`createThread failed: ${res.status}`);
     const body = (await res.json()) as { threadId: string };
     this.lastThreadId = body.threadId;
@@ -59,17 +61,17 @@ export class FastyclawClient {
     const id = threadId ?? this.lastThreadId;
     if (!id) return;
     if (id === this.lastThreadId) this.lastThreadId = null;
-    await fetch(`${this.baseUrl}/threads/${id}`, { method: 'DELETE' });
+    await fetch(`${this.baseUrl}/threads/${id}`, { method: 'DELETE', headers: this.authHeaders });
   }
 
   public async getConfig(): Promise<AppConfig> {
-    const res = await fetch(`${this.baseUrl}/config`);
+    const res = await fetch(`${this.baseUrl}/config`, { headers: this.authHeaders });
     if (!res.ok) throw new Error(`getConfig failed: ${res.status}`);
     return (await res.json()) as AppConfig;
   }
 
   public async resetConfig(): Promise<AppConfig> {
-    const res = await fetch(`${this.baseUrl}/config/reset`, { method: 'POST' });
+    const res = await fetch(`${this.baseUrl}/config/reset`, { method: 'POST', headers: this.authHeaders });
     if (!res.ok) throw new Error(`resetConfig failed: ${res.status}`);
     const body = (await res.json()) as { config: AppConfig };
     return body.config;
@@ -102,6 +104,7 @@ export class FastyclawClient {
    */
   public sendMessage(text: string, opts?: SendMessageOptions): MessageStream {
     const baseUrl = this.baseUrl;
+    const authHeaders = this.authHeaders;
     const requestedThreadId = opts?.threadId ?? this.lastThreadId ?? undefined;
     const client = this;
 
@@ -156,7 +159,11 @@ export class FastyclawClient {
             if (requestedThreadId) body.threadId = requestedThreadId;
             const res = await fetch(`${baseUrl}/messages`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+              headers: {
+                ...authHeaders,
+                'Content-Type': 'application/json',
+                Accept: 'text/event-stream',
+              },
               body: JSON.stringify(body),
             });
             if (!res.ok || !res.body) {
@@ -197,7 +204,7 @@ export class FastyclawClient {
   private async updateConfig(patch: Record<string, unknown>): Promise<void> {
     const res = await fetch(`${this.baseUrl}/config`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...this.authHeaders, 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),
     });
     if (!res.ok) throw new Error(`config update failed: ${res.status}`);

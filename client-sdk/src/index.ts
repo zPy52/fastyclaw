@@ -1,9 +1,9 @@
-export { FastyclawClient } from '@/client';
-export { FastyclawClientTelegram } from '@/telegram';
-export { FastyclawClientWhatsapp } from '@/whatsapp';
-export { FastyclawClientSlack } from '@/slack';
-export { FastyclawClientDiscord } from '@/discord';
-export { FastyclawClientProviders } from '@/providers';
+export { FastyclawClient } from './client.js';
+export { FastyclawClientTelegram } from './telegram.js';
+export { FastyclawClientWhatsapp } from './whatsapp.js';
+export { FastyclawClientSlack } from './slack.js';
+export { FastyclawClientDiscord } from './discord.js';
+export { FastyclawClientProviders } from './providers.js';
 export type {
   ServerEvent,
   Provider,
@@ -34,4 +34,4 @@ export type {
   DiscordStatus,
   DiscordChatListItem,
   DiscordChatKind,
-} from '@/types';
+} from './types.js';

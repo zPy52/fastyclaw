@@ -55,6 +55,7 @@ const DEFAULT_DISCORD: DiscordConfig = {
 };
 
 export interface AppConfigPatch {
+  authToken?: string | null;
   model?: string;
   provider?: Partial<ProviderConfig> & { id?: ProviderId };
   providerOptions?: Record<string, Record<string, unknown>>;
@@ -67,9 +68,11 @@ export interface AppConfigPatch {
 }
 
 export class Const {
-  public static readonly DEFAULT_PORT: number = 5177;
-  public static readonly host: string = '127.0.0.1';
+  public static readonly DEFAULT_PORT: number = Number(process.env.FASTYCLAW_PORT ?? 5177);
+  public static readonly host: string = process.env.FASTYCLAW_HOST ?? '127.0.0.1';
   public static readonly baseUrl: string = `http://localhost:${Const.DEFAULT_PORT}`;
+  public static readonly publicBaseUrl: string =
+    process.env.FASTYCLAW_PUBLIC_URL ?? `http://localhost:${Const.DEFAULT_PORT}`;
   public static readonly defaultModel: string = 'gpt-5.4-mini';
   public static readonly defaultProviderId: ProviderId = 'openai';
   public static readonly skillsDir: string = path.join(HOME, '.agents', 'skills');
@@ -116,6 +119,7 @@ export class AppConfigStore {
   private initialConfig(): AppConfig {
     const detected = autoDetectProvider();
     return {
+      authToken: null,
       model: detected.model,
       provider: detected.provider,
       providerOptions: {},
@@ -142,17 +146,19 @@ export class AppConfigStore {
     const model = typeof raw.model === 'string' ? raw.model : defaultModelFor(provider.id);
     const providerOptions = isStringMap(raw.providerOptions) ? (raw.providerOptions as Record<string, Record<string, unknown>>) : {};
     const callOptions = isStringMap(raw.callOptions) ? (raw.callOptions as CallOptions) : {};
+    const authToken = raw.authToken === null || typeof raw.authToken === 'string' ? raw.authToken : null;
     const cwd = typeof raw.cwd === 'string' ? raw.cwd : process.cwd();
     const telegram = mergeTelegram(DEFAULT_TELEGRAM, raw.telegram as Partial<TelegramConfig> | undefined);
     const whatsapp = mergeWhatsapp(DEFAULT_WHATSAPP, raw.whatsapp as Partial<WhatsappConfig> | undefined);
     const slack = mergeSlack(DEFAULT_SLACK, raw.slack as Partial<SlackConfig> | undefined);
     const discord = mergeDiscord(DEFAULT_DISCORD, raw.discord as Partial<DiscordConfig> | undefined);
 
-    return { model, provider, providerOptions, callOptions, cwd, telegram, whatsapp, slack, discord };
+    return { authToken, model, provider, providerOptions, callOptions, cwd, telegram, whatsapp, slack, discord };
   }
 
   private write(config: AppConfig): void {
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), { encoding: 'utf8', mode: 0o600 });
+    fs.chmodSync(CONFIG_PATH, 0o600);
   }
 
   public get(): AppConfig {
@@ -161,6 +167,7 @@ export class AppConfigStore {
 
   public getMasked(): AppConfig {
     const clone = structuredClone(this.config);
+    clone.authToken = maskSecret(clone.authToken);
     clone.provider = maskProvider(clone.provider);
     clone.telegram = { ...clone.telegram, token: maskSecret(clone.telegram.token) };
     clone.slack = {
@@ -173,6 +180,7 @@ export class AppConfigStore {
   }
 
   public patch(patch: AppConfigPatch): AppConfig {
+    if (patch.authToken === null || typeof patch.authToken === 'string') this.config.authToken = patch.authToken;
     if (typeof patch.model === 'string') this.config.model = patch.model;
     if (patch.provider) {
       const currentId = this.config.provider.id;

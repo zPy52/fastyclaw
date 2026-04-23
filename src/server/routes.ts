@@ -104,6 +104,7 @@ export class SubmoduleFastyclawServerRoutes {
 
     if (typeof body.model === 'string') patch.model = body.model;
     if (typeof body.cwd === 'string') patch.cwd = path.resolve(body.cwd);
+    if (body.authToken === null || typeof body.authToken === 'string') patch.authToken = body.authToken;
 
     if (body.provider !== undefined) {
       const parsed = parseProviderPatch(body.provider);

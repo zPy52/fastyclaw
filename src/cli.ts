@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import fs from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import qrcode from 'qrcode-terminal';
 import { FastyclawServer } from '@/server/index';
 import { Const } from '@/config/index';
@@ -10,6 +12,10 @@ function usage(): never {
   console.error([
     'usage:',
     '  fastyclaw start [port]',
+    '  fastyclaw auth status',
+    '  fastyclaw auth set-token <token>',
+    '  fastyclaw auth rotate',
+    '  fastyclaw auth disable',
     '  fastyclaw provider list',
     '  fastyclaw provider show',
     '  fastyclaw provider set <id> [--model <m>] [--key k=v ...]',
@@ -58,11 +64,16 @@ function usage(): never {
 }
 
 async function request(method: string, path: string, body?: unknown): Promise<unknown> {
+  const headers: Record<string, string> = {};
+  if (body) headers['Content-Type'] = 'application/json';
+  const authToken = localAuthToken();
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
+
   let res: Response;
   try {
     res = await fetch(`${Const.baseUrl}${path}`, {
       method,
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch {
@@ -80,6 +91,16 @@ async function request(method: string, path: string, body?: unknown): Promise<un
     process.exit(1);
   }
   return json;
+}
+
+function localAuthToken(): string | null {
+  if (process.env.FASTYCLAW_AUTH_TOKEN) return process.env.FASTYCLAW_AUTH_TOKEN;
+  try {
+    const raw = JSON.parse(fs.readFileSync(Const.configPath, 'utf8')) as { authToken?: unknown };
+    return typeof raw.authToken === 'string' && raw.authToken.length > 0 ? raw.authToken : null;
+  } catch {
+    return null;
+  }
 }
 
 function coerceValue(raw: string): unknown {
@@ -206,6 +227,36 @@ async function handleCallOption(sub: string | undefined, rest: string[]): Promis
   usage();
 }
 
+async function handleAuth(sub: string | undefined, rest: string[]): Promise<void> {
+  switch (sub) {
+    case 'status': {
+      const data = await request('GET', '/config') as { authToken?: string | null };
+      console.log(JSON.stringify({ enabled: !!data.authToken, authToken: data.authToken ?? null }, null, 2));
+      return;
+    }
+    case 'set-token': {
+      const token = rest[0];
+      if (!token) usage();
+      const out = await request('POST', '/config', { authToken: token });
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'rotate': {
+      const token = randomBytes(32).toString('base64url');
+      await request('POST', '/config', { authToken: token });
+      console.log(token);
+      return;
+    }
+    case 'disable': {
+      const out = await request('POST', '/config', { authToken: null });
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    default:
+      usage();
+  }
+}
+
 async function handleTelegram(sub: string | undefined, rest: string[]): Promise<void> {
   switch (sub) {
     case 'status': {
@@ -281,6 +332,11 @@ if (cmd === 'start') {
   });
 } else if (cmd === 'provider') {
   handleProvider(argv[1], argv.slice(2)).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (cmd === 'auth') {
+  handleAuth(argv[1], argv.slice(2)).catch((err) => {
     console.error(err);
     process.exit(1);
   });

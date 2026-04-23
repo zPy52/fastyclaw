@@ -8,6 +8,7 @@ import { FastyclawTelegram } from '@/telegram/index';
 import { FastyclawWhatsapp } from '@/whatsapp/index';
 import { FastyclawSlack } from '@/slack/index';
 import { FastyclawDiscord } from '@/discord/index';
+import { bearerAuth } from '@/server/auth';
 
 function findAvailablePort(port: number): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -41,12 +42,13 @@ export class FastyclawServer {
     await FastyclawDiscord.chats.load();
     await FastyclawDiscord.applyConfig(FastyclawServer.config.get().discord);
     const app = express();
+    app.use(bearerAuth(FastyclawServer.config));
     FastyclawServer.routes.mount(app);
     const resolvedPort = await findAvailablePort(port ?? Const.DEFAULT_PORT);
     await new Promise<void>((resolve) => {
       app.listen(resolvedPort, Const.host, () => resolve());
     });
-    console.log(`fastyclaw listening on http://localhost:${resolvedPort}`);
+    console.log(`fastyclaw listening on ${Const.publicBaseUrl}`);
 
     const shutdown = () => {
       void Promise.allSettled([

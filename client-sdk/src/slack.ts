@@ -3,13 +3,16 @@ import type {
   SlackChatListItem,
   SlackConfig,
   SlackStatus,
-} from '@/types';
+} from './types.js';
 
 export class FastyclawClientSlack {
-  public constructor(private readonly baseUrl: string) {}
+  public constructor(
+    private readonly baseUrl: string,
+    private readonly authHeaders: Record<string, string> = {},
+  ) {}
 
   public async getConfig(): Promise<SlackConfig> {
-    const res = await fetch(`${this.baseUrl}/slack/config`);
+    const res = await fetch(`${this.baseUrl}/slack/config`, { headers: this.authHeaders });
     if (!res.ok) throw new Error(`getConfig failed: ${res.status}`);
     return (await res.json()) as SlackConfig;
   }
@@ -31,23 +34,23 @@ export class FastyclawClientSlack {
   }
 
   public async enable(): Promise<void> {
-    const res = await fetch(`${this.baseUrl}/slack/start`, { method: 'POST' });
+    const res = await fetch(`${this.baseUrl}/slack/start`, { method: 'POST', headers: this.authHeaders });
     if (!res.ok) throw new Error(`enable failed: ${res.status}`);
   }
 
   public async disable(): Promise<void> {
-    const res = await fetch(`${this.baseUrl}/slack/stop`, { method: 'POST' });
+    const res = await fetch(`${this.baseUrl}/slack/stop`, { method: 'POST', headers: this.authHeaders });
     if (!res.ok) throw new Error(`disable failed: ${res.status}`);
   }
 
   public async status(): Promise<SlackStatus> {
-    const res = await fetch(`${this.baseUrl}/slack/status`);
+    const res = await fetch(`${this.baseUrl}/slack/status`, { headers: this.authHeaders });
     if (!res.ok) throw new Error(`status failed: ${res.status}`);
     return (await res.json()) as SlackStatus;
   }
 
   public async listChats(): Promise<SlackChatListItem[]> {
-    const res = await fetch(`${this.baseUrl}/slack/chats`);
+    const res = await fetch(`${this.baseUrl}/slack/chats`, { headers: this.authHeaders });
     if (!res.ok) throw new Error(`listChats failed: ${res.status}`);
     return (await res.json()) as SlackChatListItem[];
   }
@@ -55,7 +58,7 @@ export class FastyclawClientSlack {
   public async forgetChat(channelId: string): Promise<void> {
     const res = await fetch(
       `${this.baseUrl}/slack/chats/${encodeURIComponent(channelId)}`,
-      { method: 'DELETE' },
+      { method: 'DELETE', headers: this.authHeaders },
     );
     if (!res.ok) throw new Error(`forgetChat failed: ${res.status}`);
   }
@@ -63,7 +66,7 @@ export class FastyclawClientSlack {
   private async patch(body: Partial<SlackConfig>): Promise<void> {
     const res = await fetch(`${this.baseUrl}/slack/config`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...this.authHeaders, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`slack config update failed: ${res.status}`);
