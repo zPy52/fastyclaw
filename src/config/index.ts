@@ -18,13 +18,7 @@ import type {
 
 const HOME = os.homedir();
 const ROOT_DIR = path.join(HOME, '.fastyclaw');
-const CONFIG_PATH = path.join(ROOT_DIR, 'config.json');
-const THREADS_DIR = path.join(ROOT_DIR, 'threads');
-const TELEGRAM_CHATS_PATH = path.join(ROOT_DIR, 'telegram-chats.json');
-const WHATSAPP_AUTH_DIR = path.join(ROOT_DIR, 'whatsapp-auth');
-const WHATSAPP_CHATS_PATH = path.join(ROOT_DIR, 'whatsapp-chats.json');
-const SLACK_CHATS_PATH = path.join(ROOT_DIR, 'slack-chats.json');
-const DISCORD_CHATS_PATH = path.join(ROOT_DIR, 'discord-chats.json');
+const AGENTS_DIR = path.join(ROOT_DIR, 'agents');
 
 const DEFAULT_TELEGRAM: TelegramConfig = {
   token: null,
@@ -68,24 +62,31 @@ export interface AppConfigPatch {
 }
 
 export class Const {
-  public static readonly DEFAULT_PORT: number = Number(process.env.FASTYCLAW_PORT ?? 5177);
-  public static readonly host: string = process.env.FASTYCLAW_HOST ?? '127.0.0.1';
-  public static readonly baseUrl: string = `http://localhost:${Const.DEFAULT_PORT}`;
-  public static readonly publicBaseUrl: string =
-    process.env.FASTYCLAW_PUBLIC_URL ?? `http://localhost:${Const.DEFAULT_PORT}`;
+  public static readonly DEFAULT_PORT: number = 5177;
+  public static host: string = process.env.FASTYCLAW_HOST ?? '127.0.0.1';
+  public static port: number = Number(process.env.FASTYCLAW_PORT || Const.DEFAULT_PORT);
   public static readonly defaultModel: string = 'gpt-5.4-mini';
   public static readonly defaultProviderId: ProviderId = 'openai';
   public static readonly skillsDir: string = path.join(HOME, '.agents', 'skills');
-  public static readonly fastyclawDir: string = ROOT_DIR;
-  public static readonly configPath: string = CONFIG_PATH;
-  public static readonly threadsDir: string = THREADS_DIR;
-  public static readonly telegramChatsPath: string = TELEGRAM_CHATS_PATH;
-  public static readonly whatsappAuthDir: string = WHATSAPP_AUTH_DIR;
-  public static readonly whatsappChatsPath: string = WHATSAPP_CHATS_PATH;
-  public static readonly slackChatsPath: string = SLACK_CHATS_PATH;
-  public static readonly discordChatsPath: string = DISCORD_CHATS_PATH;
-  public static readonly browserProfileDir: string =
-    process.env.FASTYCLAW_BROWSER_PROFILE ?? path.join(HOME, '.fastyclaw', 'browser-profile');
+  public static readonly rootDir: string = ROOT_DIR;
+  public static readonly agentsDir: string = AGENTS_DIR;
+  public static name: string = 'fastyclaw';
+  public static fastyclawDir: string = path.join(AGENTS_DIR, 'fastyclaw');
+  public static agentDir: string = Const.fastyclawDir;
+  public static configPath: string = path.join(Const.agentDir, 'config.json');
+  public static agentsMdPath: string = path.join(Const.agentDir, 'AGENTS.md');
+  public static threadsDir: string = path.join(Const.agentDir, 'threads');
+  public static telegramChatsPath: string = path.join(Const.agentDir, 'telegram-chats.json');
+  public static whatsappAuthDir: string = path.join(Const.agentDir, 'whatsapp-auth');
+  public static whatsappChatsPath: string = path.join(Const.agentDir, 'whatsapp-chats.json');
+  public static slackChatsPath: string = path.join(Const.agentDir, 'slack-chats.json');
+  public static discordChatsPath: string = path.join(Const.agentDir, 'discord-chats.json');
+  public static browserProfileDir: string =
+    process.env.FASTYCLAW_BROWSER_PROFILE ?? path.join(Const.agentDir, 'browser-profile');
+  public static pidPath: string = path.join(Const.agentDir, 'agent.pid');
+  public static logPath: string = path.join(Const.agentDir, 'agent.log');
+  public static errPath: string = path.join(Const.agentDir, 'agent.err');
+  public static statePath: string = path.join(Const.agentDir, 'state.json');
   public static readonly browserCdpUrl: string | undefined = process.env.FASTYCLAW_BROWSER_CDP_URL;
   public static readonly browserChannel: string | undefined = process.env.FASTYCLAW_BROWSER_CHANNEL ?? 'chrome';
   public static readonly browserHeadless: boolean = process.env.FASTYCLAW_BROWSER_HEADLESS === 'true';
@@ -93,7 +94,40 @@ export class Const {
     width: Number(process.env.FASTYCLAW_BROWSER_WIDTH ?? 1280),
     height: Number(process.env.FASTYCLAW_BROWSER_HEIGHT ?? 720),
   };
+
+  public static bind(name: string): void {
+    Const.name = name || 'fastyclaw';
+    Const.agentDir = process.env.FASTYCLAW_AGENT_DIR || path.join(AGENTS_DIR, Const.name);
+    Const.fastyclawDir = Const.agentDir;
+    Const.configPath = path.join(Const.agentDir, 'config.json');
+    Const.agentsMdPath = path.join(Const.agentDir, 'AGENTS.md');
+    Const.threadsDir = path.join(Const.agentDir, 'threads');
+    Const.telegramChatsPath = path.join(Const.agentDir, 'telegram-chats.json');
+    Const.whatsappAuthDir = path.join(Const.agentDir, 'whatsapp-auth');
+    Const.whatsappChatsPath = path.join(Const.agentDir, 'whatsapp-chats.json');
+    Const.slackChatsPath = path.join(Const.agentDir, 'slack-chats.json');
+    Const.discordChatsPath = path.join(Const.agentDir, 'discord-chats.json');
+    Const.browserProfileDir = process.env.FASTYCLAW_BROWSER_PROFILE ?? path.join(Const.agentDir, 'browser-profile');
+    Const.pidPath = path.join(Const.agentDir, 'agent.pid');
+    Const.logPath = path.join(Const.agentDir, 'agent.log');
+    Const.errPath = path.join(Const.agentDir, 'agent.err');
+    Const.statePath = path.join(Const.agentDir, 'state.json');
+  }
+
+  public static setPort(port: number): void {
+    Const.port = port;
+  }
+
+  public static baseUrl(): string {
+    return `http://${Const.host}:${Const.port}`;
+  }
+
+  public static publicBaseUrl(): string {
+    return process.env.FASTYCLAW_PUBLIC_URL ?? Const.baseUrl();
+  }
 }
+
+Const.bind(process.env.FASTYCLAW_AGENT_NAME ?? 'fastyclaw');
 
 const SECRET_PROVIDER_FIELDS = new Set(['apiKey', 'accessKeyId', 'secretAccessKey', 'sessionToken']);
 
@@ -101,14 +135,14 @@ export class AppConfigStore {
   private config: AppConfig;
 
   public constructor() {
-    fs.mkdirSync(ROOT_DIR, { recursive: true });
+    fs.mkdirSync(Const.agentDir, { recursive: true });
     this.config = this.read();
     this.write(this.config);
   }
 
   private read(): AppConfig {
     try {
-      const raw = fs.readFileSync(CONFIG_PATH, 'utf8');
+      const raw = fs.readFileSync(Const.configPath, 'utf8');
       const parsed = JSON.parse(raw) as Record<string, unknown>;
       return this.normalize(parsed);
     } catch {
@@ -157,8 +191,8 @@ export class AppConfigStore {
   }
 
   private write(config: AppConfig): void {
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), { encoding: 'utf8', mode: 0o600 });
-    fs.chmodSync(CONFIG_PATH, 0o600);
+    fs.writeFileSync(Const.configPath, JSON.stringify(config, null, 2), { encoding: 'utf8', mode: 0o600 });
+    fs.chmodSync(Const.configPath, 0o600);
   }
 
   public get(): AppConfig {

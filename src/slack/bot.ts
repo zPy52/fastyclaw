@@ -1,8 +1,11 @@
-import { App } from '@slack/bolt';
+import slackBolt from '@slack/bolt';
+import type { App as SlackApp } from '@slack/bolt';
 import type { SlackEventHandler, SlackIncomingEvent } from '@/slack/types';
 
+const { App } = slackBolt;
+
 export class SubmoduleFastyclawSlackBot {
-  private app: App | null = null;
+  private app: SlackApp | null = null;
   private botToken: string | null = null;
   private appToken: string | null = null;
   private botUserIdCached: string | null = null;
@@ -12,7 +15,7 @@ export class SubmoduleFastyclawSlackBot {
     return this.running;
   }
 
-  public current(): App | null {
+  public current(): SlackApp | null {
     return this.app;
   }
 

@@ -1,5 +1,6 @@
-import net from 'node:net';
+import fs from 'node:fs';
 import express from 'express';
+import type { Server } from 'node:http';
 import { AppConfigStore, Const } from '@/config/index';
 import { AgentSkills } from '@/skills/index';
 import { SubmoduleFastyclawServerRoutes } from '@/server/routes';
@@ -9,17 +10,7 @@ import { FastyclawWhatsapp } from '@/whatsapp/index';
 import { FastyclawSlack } from '@/slack/index';
 import { FastyclawDiscord } from '@/discord/index';
 import { bearerAuth } from '@/server/auth';
-
-function findAvailablePort(port: number): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const srv = net.createServer();
-    srv.listen(port, Const.host, () => srv.close(() => resolve(port)));
-    srv.on('error', (err: NodeJS.ErrnoException) => {
-      if (err.code === 'EADDRINUSE') resolve(findAvailablePort(port + 1));
-      else reject(err);
-    });
-  });
-}
+import { pickFreePort, removeStateFiles } from '@/server/daemon';
 
 export class FastyclawServer {
   public static readonly threads = new SubmoduleFastyclawServerThreads();
@@ -27,10 +18,36 @@ export class FastyclawServer {
   public static routes: SubmoduleFastyclawServerRoutes;
 
   public static async start(port?: number): Promise<void> {
+    fs.mkdirSync(Const.agentDir, { recursive: true });
+    fs.writeFileSync(Const.pidPath, String(process.pid), { encoding: 'utf8', mode: 0o600 });
+
+    let server: Server | undefined;
+    let shuttingDown = false;
+    const shutdown = () => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      void Promise.allSettled([
+        FastyclawTelegram.shutdown(),
+        FastyclawWhatsapp.shutdown(),
+        FastyclawSlack.shutdown(),
+        FastyclawDiscord.shutdown(),
+      ]).then(() => new Promise<void>((resolve) => {
+        if (!server) {
+          resolve();
+          return;
+        }
+        server.close(() => resolve());
+      })).finally(() => {
+        removeStateFiles();
+        process.exit(0);
+      });
+    };
+
     FastyclawServer.config = new AppConfigStore();
     FastyclawServer.routes = new SubmoduleFastyclawServerRoutes(
       FastyclawServer.threads,
       FastyclawServer.config,
+      shutdown,
     );
     await AgentSkills.loader.load();
     await FastyclawTelegram.chats.load();
@@ -44,21 +61,34 @@ export class FastyclawServer {
     const app = express();
     app.use(bearerAuth(FastyclawServer.config));
     FastyclawServer.routes.mount(app);
-    const resolvedPort = await findAvailablePort(port ?? Const.DEFAULT_PORT);
+    const requestedPort = port ?? (Number(process.env.FASTYCLAW_PORT) || Const.DEFAULT_PORT);
+    const resolvedPort = await pickFreePort(requestedPort);
     await new Promise<void>((resolve) => {
-      app.listen(resolvedPort, Const.host, () => resolve());
+      server = app.listen(resolvedPort, Const.host, () => resolve());
     });
-    console.log(`fastyclaw listening on ${Const.publicBaseUrl}`);
+    Const.setPort(resolvedPort);
+    fs.writeFileSync(Const.statePath, JSON.stringify({
+      name: Const.name,
+      pid: process.pid,
+      port: resolvedPort,
+      host: Const.host,
+      startedAt: new Date().toISOString(),
+      version: packageVersion(),
+    }, null, 2), { encoding: 'utf8', mode: 0o600 });
+    console.log(`fastyclaw listening on ${Const.publicBaseUrl()}`);
 
-    const shutdown = () => {
-      void Promise.allSettled([
-        FastyclawTelegram.shutdown(),
-        FastyclawWhatsapp.shutdown(),
-        FastyclawSlack.shutdown(),
-        FastyclawDiscord.shutdown(),
-      ]).finally(() => process.exit(0));
-    };
     process.once('SIGINT', shutdown);
     process.once('SIGTERM', shutdown);
+  }
+}
+
+function packageVersion(): string {
+  try {
+    const pkgUrl = new URL('../../package.json', import.meta.url);
+    const raw = fs.readFileSync(pkgUrl, 'utf8');
+    const parsed = JSON.parse(raw) as { version?: unknown };
+    return typeof parsed.version === 'string' ? parsed.version : '0.0.0';
+  } catch {
+    return '0.0.0';
   }
 }

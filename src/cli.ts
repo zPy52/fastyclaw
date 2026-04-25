@@ -1,9 +1,20 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import qrcode from 'qrcode-terminal';
-import { FastyclawServer } from '@/server/index';
 import { Const } from '@/config/index';
+import { parseAgentArgs, printHeader, fail } from '@/cli/args';
+import {
+  listAgentNames,
+  pickFreePort,
+  readState,
+  readStateFor,
+  spawnDaemon,
+  waitForExit,
+  waitForState,
+  type AgentState,
+} from '@/server/daemon';
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -11,21 +22,26 @@ const cmd = argv[0];
 function usage(): never {
   console.error([
     'usage:',
-    '  fastyclaw start [port]',
-    '  fastyclaw auth status',
-    '  fastyclaw auth set-token <token>',
-    '  fastyclaw auth rotate',
-    '  fastyclaw auth disable',
-    '  fastyclaw provider list',
-    '  fastyclaw provider show',
-    '  fastyclaw provider set <id> [--model <m>] [--key k=v ...]',
-    '  fastyclaw provider models <id>',
-    '  fastyclaw provider probe',
-    '  fastyclaw provider option set <provider> <key> <value>',
-    '  fastyclaw provider option unset <provider> <key>',
-    '  fastyclaw call-option set <key> <value>',
-    '  fastyclaw call-option unset <key>',
-    '  fastyclaw telegram status',
+    '  fastyclaw start [name] [--name|-n <name>] [--port|-p <port>]',
+    '  fastyclaw server start [name] [-n <name>] [-p <port>]',
+    '  fastyclaw server stop [name]',
+    '  fastyclaw server list',
+    '  fastyclaw server status [name]',
+    '  fastyclaw server logs [name] [--err]',
+    '  fastyclaw auth status [-n <name>]',
+    '  fastyclaw auth set-token <token> [-n <name>]',
+    '  fastyclaw auth rotate [-n <name>]',
+    '  fastyclaw auth disable [-n <name>]',
+    '  fastyclaw provider list [-n <name>]',
+    '  fastyclaw provider show [-n <name>]',
+    '  fastyclaw provider set <id> [--model <m>] [--key k=v ...] [-n <name>]',
+    '  fastyclaw provider models <id> [-n <name>]',
+    '  fastyclaw provider probe [-n <name>]',
+    '  fastyclaw provider option set <provider> <key> <value> [-n <name>]',
+    '  fastyclaw provider option unset <provider> <key> [-n <name>]',
+    '  fastyclaw call-option set <key> <value> [-n <name>]',
+    '  fastyclaw call-option unset <key> [-n <name>]',
+    '  fastyclaw telegram status [-n <name>]',
     '  fastyclaw telegram set-token <token>',
     '  fastyclaw telegram allow <userId> [<userId> ...]',
     '  fastyclaw telegram trigger <mention|all>',
@@ -64,6 +80,13 @@ function usage(): never {
 }
 
 async function request(method: string, path: string, body?: unknown): Promise<unknown> {
+  const state = readState();
+  if (!state) {
+    console.error(`fastyclaw agent "${Const.name}" is not running — run 'fastyclaw start ${Const.name}' first.`);
+    process.exit(1);
+  }
+  Const.setPort(state.port);
+  Const.host = state.host;
   const headers: Record<string, string> = {};
   if (body) headers['Content-Type'] = 'application/json';
   const authToken = localAuthToken();
@@ -71,13 +94,13 @@ async function request(method: string, path: string, body?: unknown): Promise<un
 
   let res: Response;
   try {
-    res = await fetch(`${Const.baseUrl}${path}`, {
+    res = await fetch(`${Const.baseUrl()}${path}`, {
       method,
       headers: Object.keys(headers).length > 0 ? headers : undefined,
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch {
-    console.error(`fastyclaw server not running — run 'fastyclaw start' first.`);
+    console.error(`fastyclaw agent "${Const.name}" is not reachable — run 'fastyclaw start ${Const.name}' first.`);
     process.exit(1);
   }
   const text = await res.text();
@@ -91,6 +114,29 @@ async function request(method: string, path: string, body?: unknown): Promise<un
     process.exit(1);
   }
   return json;
+}
+
+function bindCommandAgent(tokens: string[]): { sub: string | undefined; rest: string[] } {
+  const scoped = bindRequestAgent(tokens);
+  return { sub: scoped[0], rest: scoped.slice(1) };
+}
+
+function bindRequestAgent(rest: string[]): string[] {
+  let name = process.env.FASTYCLAW_AGENT_NAME ?? 'fastyclaw';
+  const out: string[] = [];
+  for (let i = 0; i < rest.length; i++) {
+    const token = rest[i];
+    if (token === '--name' || token === '-n') {
+      const next = rest[++i];
+      if (!next) fail(`missing value for ${token}`);
+      if (!/^[a-zA-Z0-9._-]+$/.test(next)) fail('invalid agent name');
+      name = next;
+      continue;
+    }
+    out.push(token);
+  }
+  Const.bind(name);
+  return out;
 }
 
 function localAuthToken(): string | null {
@@ -316,57 +362,165 @@ async function handleTelegram(sub: string | undefined, rest: string[]): Promise<
   }
 }
 
-if (cmd === 'start') {
-  const portArg = argv[1];
-  let port: number | undefined;
-  if (portArg !== undefined) {
-    port = Number(portArg);
-    if (!Number.isInteger(port) || port < 1 || port > 65535) {
-      console.error(`invalid port: ${portArg}`);
-      process.exit(1);
-    }
+dispatch().catch((err) => {
+  console.error(err instanceof Error ? err.message : err);
+  process.exit(1);
+});
+
+async function dispatch(): Promise<void> {
+  if (cmd === '__run-daemon') {
+    Const.bind(process.env.FASTYCLAW_AGENT_NAME ?? 'fastyclaw');
+    const { FastyclawServer } = await import('@/server/index');
+    await FastyclawServer.start(Number(process.env.FASTYCLAW_PORT) || undefined);
+    return;
   }
-  FastyclawServer.start(port).catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
-} else if (cmd === 'provider') {
-  handleProvider(argv[1], argv.slice(2)).catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
-} else if (cmd === 'auth') {
-  handleAuth(argv[1], argv.slice(2)).catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
-} else if (cmd === 'call-option') {
-  handleCallOption(argv[1], argv.slice(2)).catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
-} else if (cmd === 'telegram') {
-  handleTelegram(argv[1], argv.slice(2)).catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
-} else if (cmd === 'whatsapp') {
-  handleWhatsapp(argv[1], argv.slice(2)).catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
-} else if (cmd === 'slack') {
-  handleSlack(argv[1], argv.slice(2)).catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
-} else if (cmd === 'discord') {
-  handleDiscord(argv[1], argv.slice(2)).catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
-} else {
+  if (cmd === 'start') {
+    await handleStart(argv.slice(1));
+    return;
+  }
+  if (cmd === 'server') {
+    const sub = argv[1];
+    if (sub === 'start') { await handleStart(argv.slice(2)); return; }
+    if (sub === 'stop') { await handleServerStop(argv.slice(2)); return; }
+    if (sub === 'list') { await handleServerList(); return; }
+    if (sub === 'status') { await handleServerStatus(argv.slice(2)); return; }
+    if (sub === 'logs') { await handleServerLogs(argv.slice(2)); return; }
+    usage();
+  }
+  if (cmd === 'provider') {
+    const scoped = bindCommandAgent(argv.slice(1));
+    await handleProvider(scoped.sub, scoped.rest);
+    return;
+  }
+  if (cmd === 'auth') {
+    const scoped = bindCommandAgent(argv.slice(1));
+    await handleAuth(scoped.sub, scoped.rest);
+    return;
+  }
+  if (cmd === 'call-option') {
+    const scoped = bindCommandAgent(argv.slice(1));
+    await handleCallOption(scoped.sub, scoped.rest);
+    return;
+  }
+  if (cmd === 'telegram') {
+    const scoped = bindCommandAgent(argv.slice(1));
+    await handleTelegram(scoped.sub, scoped.rest);
+    return;
+  }
+  if (cmd === 'whatsapp') {
+    const scoped = bindCommandAgent(argv.slice(1));
+    await handleWhatsapp(scoped.sub, scoped.rest);
+    return;
+  }
+  if (cmd === 'slack') {
+    const scoped = bindCommandAgent(argv.slice(1));
+    await handleSlack(scoped.sub, scoped.rest);
+    return;
+  }
+  if (cmd === 'discord') {
+    const scoped = bindCommandAgent(argv.slice(1));
+    await handleDiscord(scoped.sub, scoped.rest);
+    return;
+  }
   usage();
+}
+
+async function handleStart(rest: string[]): Promise<void> {
+  const { name, port } = parseAgentArgs(rest);
+  Const.bind(name);
+  printHeader(`starting agent "${name}"${port ? ` on port ${port}` : ''}`);
+
+  const existing = readState();
+  if (existing) fail(`agent "${name}" is already running (pid ${existing.pid}, port ${existing.port})`);
+
+  const resolvedPort = port ?? await pickFreePort(Const.DEFAULT_PORT);
+  const { pid } = spawnDaemon({ name, port: resolvedPort });
+  if (!pid) fail('failed to spawn daemon');
+
+  const state = await waitForState(5_000);
+  if (!state) fail(`daemon did not start in time - see ${Const.errPath}`);
+
+  console.log(`fastyclaw "${name}" running on http://${state.host}:${state.port} (pid ${state.pid})`);
+  console.log(`  dir:  ${Const.agentDir}`);
+  console.log(`  logs: ${Const.logPath}`);
+}
+
+async function handleServerStop(rest: string[]): Promise<void> {
+  const { name } = parseAgentArgs(rest);
+  Const.bind(name);
+  const state = readState();
+  if (!state) {
+    console.log(`agent "${name}" is not running`);
+    return;
+  }
+
+  try {
+    await fetch(`http://${state.host}:${state.port}/__shutdown`, {
+      method: 'POST',
+      headers: authHeader(),
+      signal: AbortSignal.timeout(2_000),
+    });
+  } catch {
+    // Fall through to process-level shutdown.
+  }
+
+  if (await waitForExit(state.pid, 3_000)) {
+    console.log(`stopped "${name}"`);
+    return;
+  }
+  try { process.kill(state.pid, 'SIGTERM'); } catch { /* already gone */ }
+
+  if (await waitForExit(state.pid, 3_000)) {
+    console.log(`stopped "${name}"`);
+    return;
+  }
+  try { process.kill(state.pid, 'SIGKILL'); } catch { /* ignore */ }
+  console.log(`force-killed "${name}"`);
+}
+
+async function handleServerList(): Promise<void> {
+  const names = await listAgentNames();
+  const rows: Array<{ name: string; state: AgentState | null }> = [];
+  for (const name of names) rows.push({ name, state: await readStateFor(name) });
+  if (rows.length === 0) {
+    console.log('NAME  PID  PORT  STARTED  STATUS');
+    return;
+  }
+  console.log('NAME  PID  PORT  STARTED  STATUS');
+  for (const row of rows) {
+    const state = row.state;
+    console.log([
+      row.name,
+      state?.pid ?? '-',
+      state?.port ?? '-',
+      state?.startedAt ?? '-',
+      state ? 'running' : 'stopped',
+    ].join('  '));
+  }
+}
+
+async function handleServerStatus(rest: string[]): Promise<void> {
+  const { name } = parseAgentArgs(rest);
+  Const.bind(name);
+  const state = readState();
+  console.log(JSON.stringify(state ?? { name, status: 'stopped' }, null, 2));
+}
+
+async function handleServerLogs(rest: string[]): Promise<void> {
+  const useErr = rest.includes('--err');
+  const { name } = parseAgentArgs(rest.filter((token) => token !== '--err'));
+  Const.bind(name);
+  const file = useErr ? Const.errPath : Const.logPath;
+  try {
+    process.stdout.write(await fsp.readFile(file, 'utf8'));
+  } catch {
+    fail(`no logs found for agent "${name}"`);
+  }
+}
+
+function authHeader(): Record<string, string> | undefined {
+  const token = localAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : undefined;
 }
 
 async function handleWhatsapp(sub: string | undefined, rest: string[]): Promise<void> {

@@ -32,12 +32,42 @@ test('config stores authToken with 0600 permissions and masks it from public con
 
     store.patch({ authToken: 'secret-token-123456' });
 
-    const raw = JSON.parse(await fsp.readFile(path.join(home, '.fastyclaw', 'config.json'), 'utf8'));
+    const raw = JSON.parse(await fsp.readFile(path.join(home, '.fastyclaw', 'agents', 'fastyclaw', 'config.json'), 'utf8'));
     assert.equal(raw.authToken, 'secret-token-123456');
     assert.equal(store.getMasked().authToken, 'sec…3456');
-    assert.equal(Const.configPath, path.join(home, '.fastyclaw', 'config.json'));
+    assert.equal(Const.configPath, path.join(home, '.fastyclaw', 'agents', 'fastyclaw', 'config.json'));
     assert.equal(fs.statSync(Const.configPath).mode & 0o777, 0o600);
   });
+});
+
+test('Const.bind isolates each named agent under its own directory', async () => {
+  await withTempHome(async (home) => {
+    const { Const } = await import(`../dist/config/index.js?agent=${Date.now()}`);
+    Const.bind('agent1');
+
+    const agentDir = path.join(home, '.fastyclaw', 'agents', 'agent1');
+    assert.equal(Const.name, 'agent1');
+    assert.equal(Const.agentDir, agentDir);
+    assert.equal(Const.configPath, path.join(agentDir, 'config.json'));
+    assert.equal(Const.threadsDir, path.join(agentDir, 'threads'));
+    assert.equal(Const.telegramChatsPath, path.join(agentDir, 'telegram-chats.json'));
+    assert.equal(Const.whatsappAuthDir, path.join(agentDir, 'whatsapp-auth'));
+    assert.equal(Const.browserProfileDir, path.join(agentDir, 'browser-profile'));
+    assert.equal(Const.pidPath, path.join(agentDir, 'agent.pid'));
+    assert.equal(Const.logPath, path.join(agentDir, 'agent.log'));
+    assert.equal(Const.errPath, path.join(agentDir, 'agent.err'));
+    assert.equal(Const.statePath, path.join(agentDir, 'state.json'));
+  });
+});
+
+test('parseAgentArgs supports names, flags, and port validation', async () => {
+  const { parseAgentArgs } = await import(`../dist/cli/args.js?args=${Date.now()}`);
+
+  assert.deepEqual(parseAgentArgs([]), { name: 'fastyclaw', port: undefined });
+  assert.deepEqual(parseAgentArgs(['agent1', '-p', '4132']), { name: 'agent1', port: 4132 });
+  assert.deepEqual(parseAgentArgs(['--name', 'agent.two', '--port', '5178']), { name: 'agent.two', port: 5178 });
+  assert.throws(() => parseAgentArgs(['bad/name']), /invalid agent name/);
+  assert.throws(() => parseAgentArgs(['--port', '70000']), /invalid port/);
 });
 
 test('bearerAuth rejects missing or wrong bearer tokens and accepts the configured token', async () => {

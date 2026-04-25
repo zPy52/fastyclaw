@@ -29,6 +29,7 @@ export class SubmoduleFastyclawServerRoutes {
   public constructor(
     private readonly threads: SubmoduleFastyclawServerThreads,
     private readonly config: AppConfigStore,
+    private readonly shutdown?: () => void,
   ) {}
 
   public mount(app: Express): void {
@@ -40,6 +41,7 @@ export class SubmoduleFastyclawServerRoutes {
     app.post('/config', (req, res) => this.setConfig(req, res));
     app.post('/config/reset', (_req, res) => this.resetConfig(res));
     app.post('/messages', (req, res) => this.message(req, res));
+    app.post('/__shutdown', (_req, res) => this.shutdownServer(res));
 
     app.get('/providers', (_req, res) => this.listProviders(res));
     app.get('/providers/:id/models', (req, res) => this.providerModels(req, res));
@@ -83,6 +85,15 @@ export class SubmoduleFastyclawServerRoutes {
   private async createThread(res: Response): Promise<void> {
     const thread = await this.threads.create();
     res.json({ threadId: thread.id });
+  }
+
+  private shutdownServer(res: Response): void {
+    if (!this.shutdown) {
+      res.status(503).json({ error: 'shutdown unavailable' });
+      return;
+    }
+    res.json({ ok: true });
+    setImmediate(() => this.shutdown?.());
   }
 
   private async deleteThread(req: Request, res: Response): Promise<void> {
