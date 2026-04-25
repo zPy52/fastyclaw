@@ -48,6 +48,7 @@ export class SubmoduleAgentRuntimePrompt {
         '- Prefer read_file and file_search over run_shell for reading and discovery.',
         '- When editing, keep the `old` string unique unless you intend replaceAll.',
         '- Do not print secrets or environment variables.',
+        '- You can schedule prompts to yourself with `schedule_automation` (cron / interval / once); list and cancel via `list_automations` and `cancel_automation`.',
         '',
         '## Delivering files to the user',
         '- Producing a file does NOT deliver it. Tools like `screenshot` let you *see* a file; they do not share it with the user.',

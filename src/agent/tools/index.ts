@@ -10,6 +10,9 @@ import { checkShell } from '@/agent/tools/check-shell';
 import { fileSearch } from '@/agent/tools/file-search';
 import { screenshot } from '@/agent/tools/screenshot';
 import { sendFiles } from '@/agent/tools/send-files';
+import { scheduleAutomation } from '@/agent/tools/schedule-automation';
+import { listAutomations } from '@/agent/tools/list-automations';
+import { cancelAutomation } from '@/agent/tools/cancel-automation';
 
 export class AgentTools {
   public static all(run: Run) {
@@ -25,6 +28,9 @@ export class AgentTools {
       see_image: seeImage(run),
       screenshot: screenshot(run),
       send_files: sendFiles(run),
+      schedule_automation: scheduleAutomation(run),
+      list_automations: listAutomations(run),
+      cancel_automation: cancelAutomation(run),
     };
   }
 }

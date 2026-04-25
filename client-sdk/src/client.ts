@@ -11,6 +11,7 @@ import { FastyclawClientWhatsapp } from './whatsapp.js';
 import { FastyclawClientSlack } from './slack.js';
 import { FastyclawClientDiscord } from './discord.js';
 import { FastyclawClientProviders } from './providers.js';
+import { FastyclawClientAutomations } from './automations.js';
 
 const DEFAULT_BASE_URL = 'http://localhost:5177';
 
@@ -32,6 +33,7 @@ export class FastyclawClient {
   public readonly slack: FastyclawClientSlack;
   public readonly discord: FastyclawClientDiscord;
   public readonly providers: FastyclawClientProviders;
+  public readonly automations: FastyclawClientAutomations;
 
   public constructor(opts?: FastyclawClientOptions) {
     this.baseUrl = opts?.baseUrl ?? DEFAULT_BASE_URL;
@@ -41,6 +43,7 @@ export class FastyclawClient {
     this.slack = new FastyclawClientSlack(this.baseUrl, this.authHeaders);
     this.discord = new FastyclawClientDiscord(this.baseUrl, this.authHeaders);
     this.providers = new FastyclawClientProviders(this.baseUrl, this.authHeaders);
+    this.automations = new FastyclawClientAutomations(this.baseUrl, this.authHeaders);
   }
 
   /** The thread id most recently created or used by this client. */

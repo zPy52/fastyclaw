@@ -4,6 +4,7 @@ export { FastyclawClientWhatsapp } from './whatsapp.js';
 export { FastyclawClientSlack } from './slack.js';
 export { FastyclawClientDiscord } from './discord.js';
 export { FastyclawClientProviders } from './providers.js';
+export { FastyclawClientAutomations } from './automations.js';
 export type {
   ServerEvent,
   Provider,
@@ -34,4 +35,10 @@ export type {
   DiscordStatus,
   DiscordChatListItem,
   DiscordChatKind,
+  Automation,
+  AutomationTrigger,
+  AutomationMode,
+  AutomationRun,
+  AutomationRunStatus,
+  CreateAutomationInput,
 } from './types.js';

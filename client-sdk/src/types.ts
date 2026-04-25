@@ -179,3 +179,51 @@ export interface FastyclawClientOptions {
   baseUrl?: string;
   authToken?: string;
 }
+
+export type AutomationTrigger =
+  | { kind: 'cron'; expr: string }
+  | { kind: 'interval'; everyMs: number }
+  | { kind: 'once'; at: string };
+
+export type AutomationMode =
+  | { kind: 'fresh' }
+  | { kind: 'attach'; threadId: string };
+
+export interface Automation {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  trigger: AutomationTrigger;
+  mode: AutomationMode;
+  cwd?: string;
+  model?: string;
+  enabled: boolean;
+  createdAt: string;
+  createdBy: 'agent' | 'http' | 'cli';
+  lastFiredAt?: string;
+  lastError?: string;
+}
+
+export type AutomationRunStatus = 'running' | 'completed' | 'failed' | 'skipped';
+
+export interface AutomationRun {
+  runId: string;
+  startedAt: string;
+  finishedAt?: string;
+  threadId: string;
+  status: AutomationRunStatus;
+  error?: string;
+  reason?: 'busy' | 'disabled' | 'expired';
+}
+
+export interface CreateAutomationInput {
+  name: string;
+  description: string;
+  prompt: string;
+  trigger: AutomationTrigger;
+  mode?: AutomationMode;
+  cwd?: string;
+  model?: string;
+  enabled?: boolean;
+}

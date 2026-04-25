@@ -23,6 +23,8 @@ import { FastyclawTelegram } from '@/channels/telegram/index';
 import { FastyclawWhatsapp } from '@/channels/whatsapp/index';
 import { FastyclawSlack } from '@/channels/slack/index';
 import { FastyclawDiscord } from '@/channels/discord/index';
+import { FastyclawAutomations } from '@/server/automations/index';
+import type { Automation, CreateAutomationInput, Mode, Trigger } from '@/server/automations/types';
 import express, { type Express, type Request, type Response } from 'express';
 
 export class SubmoduleFastyclawServerRoutes {
@@ -80,6 +82,13 @@ export class SubmoduleFastyclawServerRoutes {
     app.get('/discord/status', (_req, res) => this.discordStatus(res));
     app.get('/discord/chats', (_req, res) => this.discordListChats(res));
     app.delete('/discord/chats/:channelId', (req, res) => this.discordForgetChat(req, res));
+
+    app.get('/automations', (_req, res) => this.automationsList(res));
+    app.post('/automations', (req, res) => this.automationsCreate(req, res));
+    app.get('/automations/:id', (req, res) => this.automationsGet(req, res));
+    app.patch('/automations/:id', (req, res) => this.automationsPatch(req, res));
+    app.delete('/automations/:id', (req, res) => this.automationsDelete(req, res));
+    app.post('/automations/:id/run', (req, res) => this.automationsRunNow(req, res));
   }
 
   private async createThread(res: Response): Promise<void> {
@@ -587,6 +596,128 @@ export class SubmoduleFastyclawServerRoutes {
     await FastyclawDiscord.chats.forget(channelId);
     res.json({ ok: true });
   }
+
+  private automationsList(res: Response): void {
+    res.json(FastyclawAutomations.store.list());
+  }
+
+  private async automationsGet(req: Request, res: Response): Promise<void> {
+    const a = FastyclawAutomations.store.get(req.params.id);
+    if (!a) { res.status(404).json({ error: 'automation not found' }); return; }
+    const runs = await FastyclawAutomations.store.listRuns(a.id, 50);
+    res.json({ automation: a, runs });
+  }
+
+  private async automationsCreate(req: Request, res: Response): Promise<void> {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const parsed = parseCreateAutomation(body);
+    if ('error' in parsed) { res.status(400).json({ error: parsed.error }); return; }
+    try {
+      const created = await FastyclawAutomations.store.create({ ...parsed.value, createdBy: 'http' });
+      res.status(201).json(created);
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  private async automationsPatch(req: Request, res: Response): Promise<void> {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const patch: Partial<Automation> = {};
+    if (typeof body.name === 'string') patch.name = body.name;
+    if (typeof body.description === 'string') patch.description = body.description;
+    if (typeof body.prompt === 'string') patch.prompt = body.prompt;
+    if (typeof body.enabled === 'boolean') patch.enabled = body.enabled;
+    if (body.cwd === null) patch.cwd = undefined;
+    else if (typeof body.cwd === 'string') patch.cwd = body.cwd;
+    if (body.model === null) patch.model = undefined;
+    else if (typeof body.model === 'string') patch.model = body.model;
+    if (body.trigger !== undefined) {
+      const t = parseTrigger(body.trigger);
+      if ('error' in t) { res.status(400).json({ error: t.error }); return; }
+      patch.trigger = t.value;
+    }
+    if (body.mode !== undefined) {
+      const m = parseMode(body.mode);
+      if ('error' in m) { res.status(400).json({ error: m.error }); return; }
+      patch.mode = m.value;
+    }
+    try {
+      const next = await FastyclawAutomations.store.patch(req.params.id, patch);
+      if (!next) { res.status(404).json({ error: 'automation not found' }); return; }
+      res.json(next);
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  private async automationsDelete(req: Request, res: Response): Promise<void> {
+    const ok = await FastyclawAutomations.store.delete(req.params.id);
+    if (!ok) { res.status(404).json({ error: 'automation not found' }); return; }
+    res.json({ ok: true });
+  }
+
+  private async automationsRunNow(req: Request, res: Response): Promise<void> {
+    const a = FastyclawAutomations.store.get(req.params.id);
+    if (!a) { res.status(404).json({ error: 'automation not found' }); return; }
+    const result = await FastyclawAutomations.runner.fire(a, { manual: true });
+    res.json(result);
+  }
+}
+
+function parseCreateAutomation(body: Record<string, unknown>): { value: CreateAutomationInput } | { error: string } {
+  if (typeof body.name !== 'string') return { error: 'name (string) required' };
+  if (typeof body.description !== 'string') return { error: 'description (string) required' };
+  if (typeof body.prompt !== 'string') return { error: 'prompt (string) required' };
+  const t = parseTrigger(body.trigger);
+  if ('error' in t) return { error: t.error };
+  let mode: Mode | undefined;
+  if (body.mode !== undefined) {
+    const m = parseMode(body.mode);
+    if ('error' in m) return { error: m.error };
+    mode = m.value;
+  }
+  const value: CreateAutomationInput = {
+    name: body.name,
+    description: body.description,
+    prompt: body.prompt,
+    trigger: t.value,
+    mode,
+  };
+  if (typeof body.cwd === 'string') value.cwd = body.cwd;
+  if (typeof body.model === 'string') value.model = body.model;
+  if (typeof body.enabled === 'boolean') value.enabled = body.enabled;
+  return { value };
+}
+
+function parseTrigger(raw: unknown): { value: Trigger } | { error: string } {
+  if (!raw || typeof raw !== 'object') return { error: 'trigger must be an object' };
+  const o = raw as Record<string, unknown>;
+  if (o.kind === 'cron') {
+    if (typeof o.expr !== 'string' || o.expr.trim().length === 0) return { error: 'cron.expr required' };
+    return { value: { kind: 'cron', expr: o.expr } };
+  }
+  if (o.kind === 'interval') {
+    if (typeof o.everyMs !== 'number' || !Number.isFinite(o.everyMs) || o.everyMs < 60_000) {
+      return { error: 'interval.everyMs must be >= 60000' };
+    }
+    return { value: { kind: 'interval', everyMs: Math.floor(o.everyMs) } };
+  }
+  if (o.kind === 'once') {
+    if (typeof o.at !== 'string' || !Number.isFinite(Date.parse(o.at))) return { error: 'once.at must be ISO date' };
+    return { value: { kind: 'once', at: o.at } };
+  }
+  return { error: `unsupported trigger.kind: ${String(o.kind)}` };
+}
+
+function parseMode(raw: unknown): { value: Mode } | { error: string } {
+  if (!raw || typeof raw !== 'object') return { error: 'mode must be an object' };
+  const o = raw as Record<string, unknown>;
+  if (o.kind === 'fresh') return { value: { kind: 'fresh' } };
+  if (o.kind === 'attach') {
+    if (typeof o.threadId !== 'string' || o.threadId.length === 0) return { error: 'attach.threadId required' };
+    return { value: { kind: 'attach', threadId: o.threadId } };
+  }
+  return { error: `unsupported mode.kind: ${String(o.kind)}` };
 }
 
 const KNOWN_PROVIDER_IDS: ReadonlySet<ProviderId> = new Set<ProviderId>([

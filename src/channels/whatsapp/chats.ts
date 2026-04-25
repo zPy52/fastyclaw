@@ -23,7 +23,7 @@ export class SubmoduleFastyclawWhatsappChats {
   public async resolve(jid: string, meta: ChatMeta): Promise<string> {
     if (!this.loaded) await this.load();
     const existing = this.map[jid];
-    if (existing) {
+    if (existing && await FastyclawServer.threads.load(existing.threadId)) {
       if (existing.title !== meta.title || existing.kind !== meta.kind) {
         this.map[jid] = { ...existing, title: meta.title, kind: meta.kind };
         await this.persist();

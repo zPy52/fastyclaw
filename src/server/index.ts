@@ -9,6 +9,7 @@ import { FastyclawTelegram } from '@/channels/telegram/index';
 import { FastyclawWhatsapp } from '@/channels/whatsapp/index';
 import { FastyclawSlack } from '@/channels/slack/index';
 import { FastyclawDiscord } from '@/channels/discord/index';
+import { FastyclawAutomations } from '@/server/automations/index';
 import { bearerAuth } from '@/server/auth';
 import { pickFreePort, removeStateFiles } from '@/server/daemon';
 
@@ -26,6 +27,7 @@ export class FastyclawServer {
     const shutdown = () => {
       if (shuttingDown) return;
       shuttingDown = true;
+      try { FastyclawAutomations.scheduler.stop(); } catch { /* ignore */ }
       void Promise.allSettled([
         FastyclawTelegram.shutdown(),
         FastyclawWhatsapp.shutdown(),
@@ -49,15 +51,15 @@ export class FastyclawServer {
       FastyclawServer.config,
       shutdown,
     );
-    await AgentSkills.loader.load();
-    await FastyclawTelegram.chats.load();
-    await FastyclawTelegram.applyConfig(FastyclawServer.config.get().telegram);
-    await FastyclawWhatsapp.chats.load();
-    await FastyclawWhatsapp.applyConfig(FastyclawServer.config.get().whatsapp);
-    await FastyclawSlack.chats.load();
-    await FastyclawSlack.applyConfig(FastyclawServer.config.get().slack);
-    await FastyclawDiscord.chats.load();
-    await FastyclawDiscord.applyConfig(FastyclawServer.config.get().discord);
+    await Promise.all([
+      AgentSkills.loader.load(),
+      FastyclawTelegram.chats.load(),
+      FastyclawWhatsapp.chats.load(),
+      FastyclawSlack.chats.load(),
+      FastyclawDiscord.chats.load(),
+      FastyclawAutomations.store.load(),
+    ]);
+    FastyclawAutomations.scheduler.start();
     const app = express();
     app.use(bearerAuth(FastyclawServer.config));
     FastyclawServer.routes.mount(app);
@@ -79,6 +81,14 @@ export class FastyclawServer {
 
     process.once('SIGINT', shutdown);
     process.once('SIGTERM', shutdown);
+
+    // Channels can take seconds to come up (or hang on bad creds / pairing).
+    // Start them after the server is reachable so the daemon reports ready
+    // promptly; status endpoints expose their progress.
+    void FastyclawTelegram.applyConfig(FastyclawServer.config.get().telegram);
+    void FastyclawWhatsapp.applyConfig(FastyclawServer.config.get().whatsapp);
+    void FastyclawSlack.applyConfig(FastyclawServer.config.get().slack);
+    void FastyclawDiscord.applyConfig(FastyclawServer.config.get().discord);
   }
 }
 

@@ -71,6 +71,13 @@ function usage(): never {
     '  fastyclaw discord stop',
     '  fastyclaw discord chats',
     '  fastyclaw discord forget <channelId>',
+    '  fastyclaw automations list',
+    '  fastyclaw automations show <id>',
+    '  fastyclaw automations create --name <n> --prompt <p> (--cron <expr> | --every <ms> | --at <iso>) [--description <d>] [--cwd <dir>] [--model <m>] [--attach <threadId>]',
+    '  fastyclaw automations enable <id>',
+    '  fastyclaw automations disable <id>',
+    '  fastyclaw automations delete <id>',
+    '  fastyclaw automations run <id>',
   ].join('\n'));
   process.exit(1);
 }
@@ -399,6 +406,10 @@ async function dispatch(): Promise<void> {
     await handleDiscord(argv[1], argv.slice(2));
     return;
   }
+  if (cmd === 'automations') {
+    await handleAutomations(argv[1], argv.slice(2));
+    return;
+  }
   usage();
 }
 
@@ -413,7 +424,7 @@ async function handleStart(rest: string[]): Promise<void> {
   const { pid } = spawnDaemon({ port: resolvedPort });
   if (!pid) fail('failed to spawn daemon');
 
-  const state = await waitForState(5_000);
+  const state = await waitForState(20_000);
   if (!state) fail(`daemon did not start in time - see ${Const.errPath}`);
 
   console.log(`fastyclaw server running on ${state.publicUrl ?? `http://${state.host}:${state.port}`} (pid ${state.pid})`);
@@ -598,6 +609,101 @@ async function handleSlack(sub: string | undefined, rest: string[]): Promise<voi
       const id = rest[0];
       if (!id) usage();
       const out = await request('DELETE', `/slack/chats/${encodeURIComponent(id)}`);
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    default:
+      usage();
+  }
+}
+
+async function handleAutomations(sub: string | undefined, rest: string[]): Promise<void> {
+  if (sub !== 'create') rejectNameArgs(rest);
+  switch (sub) {
+    case 'list': {
+      const out = await request('GET', '/automations');
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'show': {
+      const id = rest[0];
+      if (!id) usage();
+      const out = await request('GET', `/automations/${encodeURIComponent(id)}`);
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'create': {
+      let name: string | undefined;
+      let prompt: string | undefined;
+      let description: string | undefined;
+      let cron: string | undefined;
+      let every: number | undefined;
+      let at: string | undefined;
+      let cwd: string | undefined;
+      let model: string | undefined;
+      let attach: string | undefined;
+      for (let i = 0; i < rest.length; i++) {
+        const tok = rest[i];
+        if (tok === '--name') { name = rest[++i]; continue; }
+        if (tok === '--prompt') { prompt = rest[++i]; continue; }
+        if (tok === '--description') { description = rest[++i]; continue; }
+        if (tok === '--cron') { cron = rest[++i]; continue; }
+        if (tok === '--every') { every = Number(rest[++i]); continue; }
+        if (tok === '--at') { at = rest[++i]; continue; }
+        if (tok === '--cwd') { cwd = rest[++i]; continue; }
+        if (tok === '--model') { model = rest[++i]; continue; }
+        if (tok === '--attach') { attach = rest[++i]; continue; }
+        console.error(`unknown arg: ${tok}`);
+        process.exit(1);
+      }
+      if (!name || !prompt) usage();
+      const triggerCount = [cron, every, at].filter((v) => v !== undefined).length;
+      if (triggerCount !== 1) {
+        console.error('exactly one of --cron, --every, --at is required');
+        process.exit(1);
+      }
+      let trigger: Record<string, unknown>;
+      if (cron) trigger = { kind: 'cron', expr: cron };
+      else if (every !== undefined) trigger = { kind: 'interval', everyMs: every };
+      else trigger = { kind: 'once', at };
+      const body: Record<string, unknown> = {
+        name,
+        description: description ?? '',
+        prompt,
+        trigger,
+      };
+      if (attach) body.mode = { kind: 'attach', threadId: attach };
+      if (cwd) body.cwd = cwd;
+      if (model) body.model = model;
+      const out = await request('POST', '/automations', body);
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'enable': {
+      const id = rest[0];
+      if (!id) usage();
+      const out = await request('PATCH', `/automations/${encodeURIComponent(id)}`, { enabled: true });
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'disable': {
+      const id = rest[0];
+      if (!id) usage();
+      const out = await request('PATCH', `/automations/${encodeURIComponent(id)}`, { enabled: false });
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'delete': {
+      const id = rest[0];
+      if (!id) usage();
+      const out = await request('DELETE', `/automations/${encodeURIComponent(id)}`);
+      console.log(JSON.stringify(out, null, 2));
+      return;
+    }
+    case 'run': {
+      const id = rest[0];
+      if (!id) usage();
+      const out = await request('POST', `/automations/${encodeURIComponent(id)}/run`);
       console.log(JSON.stringify(out, null, 2));
       return;
     }

@@ -24,7 +24,7 @@ export class SubmoduleFastyclawTelegramChats {
     if (!this.loaded) await this.load();
     const key = String(chatId);
     const existing = this.map[key];
-    if (existing) {
+    if (existing && await FastyclawServer.threads.load(existing.threadId)) {
       if (existing.title !== meta.title || existing.kind !== meta.kind) {
         this.map[key] = { ...existing, title: meta.title, kind: meta.kind };
         await this.persist();

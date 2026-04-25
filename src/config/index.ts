@@ -77,6 +77,8 @@ export class Const {
   public static readonly whatsappChatsPath: string = path.join(ROOT_DIR, 'whatsapp-chats.json');
   public static readonly slackChatsPath: string = path.join(ROOT_DIR, 'slack-chats.json');
   public static readonly discordChatsPath: string = path.join(ROOT_DIR, 'discord-chats.json');
+  public static readonly automationsPath: string = path.join(ROOT_DIR, 'automations.json');
+  public static readonly automationsDir: string = path.join(ROOT_DIR, 'automations');
   public static browserProfileDir: string =
     process.env.FASTYCLAW_BROWSER_PROFILE ?? path.join(ROOT_DIR, 'browser-profile');
   public static readonly pidPath: string = path.join(ROOT_DIR, 'server.pid');
