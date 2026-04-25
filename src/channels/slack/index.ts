@@ -1,7 +1,7 @@
 import type { SlackConfig } from '@/server/types';
-import { SubmoduleFastyclawSlackBot } from '@/slack/bot';
-import { SubmoduleFastyclawSlackChats } from '@/slack/chats';
-import { SubmoduleFastyclawSlackHandler } from '@/slack/handler';
+import { SubmoduleFastyclawSlackBot } from '@/channels/slack/bot';
+import { SubmoduleFastyclawSlackChats } from '@/channels/slack/chats';
+import { SubmoduleFastyclawSlackHandler } from '@/channels/slack/handler';
 
 export class FastyclawSlack {
   public static readonly chats = new SubmoduleFastyclawSlackChats();

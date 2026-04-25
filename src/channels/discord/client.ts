@@ -1,5 +1,5 @@
 import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
-import type { DiscordMessageHandler } from '@/discord/types';
+import type { DiscordMessageHandler } from '@/channels/discord/types';
 
 export class SubmoduleFastyclawDiscordClient {
   private client: Client | null = null;

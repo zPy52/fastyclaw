@@ -5,15 +5,15 @@ import { FastyclawServer } from '@/server/index';
 import type { AppConfig, Run, SlackConfig, Thread } from '@/server/types';
 import { closeTerminal } from '@/agent/sessions/terminal';
 import { closeBrowserSession } from '@/agent/sessions/browser';
-import { SlackStream } from '@/slack/stream';
-import type { SubmoduleFastyclawSlackBot } from '@/slack/bot';
-import type { SubmoduleFastyclawSlackChats } from '@/slack/chats';
+import { SlackStream } from '@/channels/slack/stream';
+import type { SubmoduleFastyclawSlackBot } from '@/channels/slack/bot';
+import type { SubmoduleFastyclawSlackChats } from '@/channels/slack/chats';
 import type {
   ChatMeta,
   SlackChannelKind,
   SlackEventKind,
   SlackIncomingEvent,
-} from '@/slack/types';
+} from '@/channels/slack/types';
 
 export class SubmoduleFastyclawSlackHandler {
   private readonly ownTsByChannel = new Map<string, Set<string>>();

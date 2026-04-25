@@ -1,7 +1,7 @@
 import type { TelegramConfig } from '@/server/types';
-import { SubmoduleFastyclawTelegramBot } from '@/telegram/bot';
-import { SubmoduleFastyclawTelegramChats } from '@/telegram/chats';
-import { SubmoduleFastyclawTelegramHandler } from '@/telegram/handler';
+import { SubmoduleFastyclawTelegramBot } from '@/channels/telegram/bot';
+import { SubmoduleFastyclawTelegramChats } from '@/channels/telegram/chats';
+import { SubmoduleFastyclawTelegramHandler } from '@/channels/telegram/handler';
 
 export class FastyclawTelegram {
   public static readonly chats = new SubmoduleFastyclawTelegramChats();

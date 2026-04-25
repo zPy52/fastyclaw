@@ -4,16 +4,13 @@ import fsp from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import qrcode from 'qrcode-terminal';
 import { Const } from '@/config/index';
-import { parseAgentArgs, printHeader, fail } from '@/cli/args';
+import { parseServerArgs, printHeader, fail } from '@/cli/args';
 import {
-  listAgentNames,
   pickFreePort,
   readState,
-  readStateFor,
   spawnDaemon,
   waitForExit,
   waitForState,
-  type AgentState,
 } from '@/server/daemon';
 
 const argv = process.argv.slice(2);
@@ -22,26 +19,25 @@ const cmd = argv[0];
 function usage(): never {
   console.error([
     'usage:',
-    '  fastyclaw start [name] [--name|-n <name>] [--port|-p <port>]',
-    '  fastyclaw server start [name] [-n <name>] [-p <port>]',
-    '  fastyclaw server stop [name]',
-    '  fastyclaw server list',
-    '  fastyclaw server status [name]',
-    '  fastyclaw server logs [name] [--err]',
-    '  fastyclaw auth status [-n <name>]',
-    '  fastyclaw auth set-token <token> [-n <name>]',
-    '  fastyclaw auth rotate [-n <name>]',
-    '  fastyclaw auth disable [-n <name>]',
-    '  fastyclaw provider list [-n <name>]',
-    '  fastyclaw provider show [-n <name>]',
-    '  fastyclaw provider set <id> [--model <m>] [--key k=v ...] [-n <name>]',
-    '  fastyclaw provider models <id> [-n <name>]',
-    '  fastyclaw provider probe [-n <name>]',
-    '  fastyclaw provider option set <provider> <key> <value> [-n <name>]',
-    '  fastyclaw provider option unset <provider> <key> [-n <name>]',
-    '  fastyclaw call-option set <key> <value> [-n <name>]',
-    '  fastyclaw call-option unset <key> [-n <name>]',
-    '  fastyclaw telegram status [-n <name>]',
+    '  fastyclaw start [--port|-p <port>]',
+    '  fastyclaw server start [--port|-p <port>]',
+    '  fastyclaw server stop',
+    '  fastyclaw server status',
+    '  fastyclaw server logs [--err]',
+    '  fastyclaw auth status',
+    '  fastyclaw auth set-token <token>',
+    '  fastyclaw auth rotate',
+    '  fastyclaw auth disable',
+    '  fastyclaw provider list',
+    '  fastyclaw provider show',
+    '  fastyclaw provider set <id> [--model <m>] [--key k=v ...]',
+    '  fastyclaw provider models <id>',
+    '  fastyclaw provider probe',
+    '  fastyclaw provider option set <provider> <key> <value>',
+    '  fastyclaw provider option unset <provider> <key>',
+    '  fastyclaw call-option set <key> <value>',
+    '  fastyclaw call-option unset <key>',
+    '  fastyclaw telegram status',
     '  fastyclaw telegram set-token <token>',
     '  fastyclaw telegram allow <userId> [<userId> ...]',
     '  fastyclaw telegram trigger <mention|all>',
@@ -82,7 +78,7 @@ function usage(): never {
 async function request(method: string, path: string, body?: unknown): Promise<unknown> {
   const state = readState();
   if (!state) {
-    console.error(`fastyclaw agent "${Const.name}" is not running — run 'fastyclaw start ${Const.name}' first.`);
+    console.error(`fastyclaw server is not running — run 'fastyclaw start' first.`);
     process.exit(1);
   }
   Const.setPort(state.port);
@@ -100,7 +96,7 @@ async function request(method: string, path: string, body?: unknown): Promise<un
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch {
-    console.error(`fastyclaw agent "${Const.name}" is not reachable — run 'fastyclaw start ${Const.name}' first.`);
+    console.error(`fastyclaw server is not reachable — run 'fastyclaw start' first.`);
     process.exit(1);
   }
   const text = await res.text();
@@ -114,29 +110,6 @@ async function request(method: string, path: string, body?: unknown): Promise<un
     process.exit(1);
   }
   return json;
-}
-
-function bindCommandAgent(tokens: string[]): { sub: string | undefined; rest: string[] } {
-  const scoped = bindRequestAgent(tokens);
-  return { sub: scoped[0], rest: scoped.slice(1) };
-}
-
-function bindRequestAgent(rest: string[]): string[] {
-  let name = process.env.FASTYCLAW_AGENT_NAME ?? 'fastyclaw';
-  const out: string[] = [];
-  for (let i = 0; i < rest.length; i++) {
-    const token = rest[i];
-    if (token === '--name' || token === '-n') {
-      const next = rest[++i];
-      if (!next) fail(`missing value for ${token}`);
-      if (!/^[a-zA-Z0-9._-]+$/.test(next)) fail('invalid agent name');
-      name = next;
-      continue;
-    }
-    out.push(token);
-  }
-  Const.bind(name);
-  return out;
 }
 
 function localAuthToken(): string | null {
@@ -179,7 +152,17 @@ function parseKeyPairs(tokens: string[]): Record<string, unknown> {
   return out;
 }
 
+function rejectNameArgs(tokens: string[]): void {
+  if (tokens.includes('--name') || tokens.includes('-n')) fail('--name/-n is no longer supported');
+}
+
+function rejectServerArgs(tokens: string[]): void {
+  rejectNameArgs(tokens);
+  if (tokens.length > 0) fail(`unexpected argument: ${tokens[0]}`);
+}
+
 async function handleProvider(sub: string | undefined, rest: string[]): Promise<void> {
+  rejectNameArgs(rest);
   switch (sub) {
     case 'list': {
       const data = await request('GET', '/providers');
@@ -256,6 +239,7 @@ async function handleProvider(sub: string | undefined, rest: string[]): Promise<
 }
 
 async function handleCallOption(sub: string | undefined, rest: string[]): Promise<void> {
+  rejectNameArgs(rest);
   if (sub === 'set') {
     const key = rest[0]; const value = rest[1];
     if (!key || value === undefined) usage();
@@ -274,6 +258,7 @@ async function handleCallOption(sub: string | undefined, rest: string[]): Promis
 }
 
 async function handleAuth(sub: string | undefined, rest: string[]): Promise<void> {
+  rejectNameArgs(rest);
   switch (sub) {
     case 'status': {
       const data = await request('GET', '/config') as { authToken?: string | null };
@@ -304,6 +289,7 @@ async function handleAuth(sub: string | undefined, rest: string[]): Promise<void
 }
 
 async function handleTelegram(sub: string | undefined, rest: string[]): Promise<void> {
+  rejectNameArgs(rest);
   switch (sub) {
     case 'status': {
       const status = await request('GET', '/telegram/status');
@@ -369,7 +355,6 @@ dispatch().catch((err) => {
 
 async function dispatch(): Promise<void> {
   if (cmd === '__run-daemon') {
-    Const.bind(process.env.FASTYCLAW_AGENT_NAME ?? 'fastyclaw');
     const { FastyclawServer } = await import('@/server/index');
     await FastyclawServer.start(Number(process.env.FASTYCLAW_PORT) || undefined);
     return;
@@ -382,75 +367,65 @@ async function dispatch(): Promise<void> {
     const sub = argv[1];
     if (sub === 'start') { await handleStart(argv.slice(2)); return; }
     if (sub === 'stop') { await handleServerStop(argv.slice(2)); return; }
-    if (sub === 'list') { await handleServerList(); return; }
     if (sub === 'status') { await handleServerStatus(argv.slice(2)); return; }
     if (sub === 'logs') { await handleServerLogs(argv.slice(2)); return; }
     usage();
   }
   if (cmd === 'provider') {
-    const scoped = bindCommandAgent(argv.slice(1));
-    await handleProvider(scoped.sub, scoped.rest);
+    await handleProvider(argv[1], argv.slice(2));
     return;
   }
   if (cmd === 'auth') {
-    const scoped = bindCommandAgent(argv.slice(1));
-    await handleAuth(scoped.sub, scoped.rest);
+    await handleAuth(argv[1], argv.slice(2));
     return;
   }
   if (cmd === 'call-option') {
-    const scoped = bindCommandAgent(argv.slice(1));
-    await handleCallOption(scoped.sub, scoped.rest);
+    await handleCallOption(argv[1], argv.slice(2));
     return;
   }
   if (cmd === 'telegram') {
-    const scoped = bindCommandAgent(argv.slice(1));
-    await handleTelegram(scoped.sub, scoped.rest);
+    await handleTelegram(argv[1], argv.slice(2));
     return;
   }
   if (cmd === 'whatsapp') {
-    const scoped = bindCommandAgent(argv.slice(1));
-    await handleWhatsapp(scoped.sub, scoped.rest);
+    await handleWhatsapp(argv[1], argv.slice(2));
     return;
   }
   if (cmd === 'slack') {
-    const scoped = bindCommandAgent(argv.slice(1));
-    await handleSlack(scoped.sub, scoped.rest);
+    await handleSlack(argv[1], argv.slice(2));
     return;
   }
   if (cmd === 'discord') {
-    const scoped = bindCommandAgent(argv.slice(1));
-    await handleDiscord(scoped.sub, scoped.rest);
+    await handleDiscord(argv[1], argv.slice(2));
     return;
   }
   usage();
 }
 
 async function handleStart(rest: string[]): Promise<void> {
-  const { name, port } = parseAgentArgs(rest);
-  Const.bind(name);
-  printHeader(`starting agent "${name}"${port ? ` on port ${port}` : ''}`);
+  const { port } = parseServerArgs(rest);
+  printHeader(`starting server${port ? ` on port ${port}` : ''}`);
 
   const existing = readState();
-  if (existing) fail(`agent "${name}" is already running (pid ${existing.pid}, port ${existing.port})`);
+  if (existing) fail(`server is already running (pid ${existing.pid}, port ${existing.port})`);
 
   const resolvedPort = port ?? await pickFreePort(Const.DEFAULT_PORT);
-  const { pid } = spawnDaemon({ name, port: resolvedPort });
+  const { pid } = spawnDaemon({ port: resolvedPort });
   if (!pid) fail('failed to spawn daemon');
 
   const state = await waitForState(5_000);
   if (!state) fail(`daemon did not start in time - see ${Const.errPath}`);
 
-  console.log(`fastyclaw "${name}" running on http://${state.host}:${state.port} (pid ${state.pid})`);
-  console.log(`  dir:  ${Const.agentDir}`);
+  console.log(`fastyclaw server running on http://${state.host}:${state.port} (pid ${state.pid})`);
+  console.log(`  dir:  ${Const.fastyclawDir}`);
   console.log(`  logs: ${Const.logPath}`);
 }
 
 async function handleServerStop(rest: string[]): Promise<void> {
-  const { name } = parseAgentArgs(rest);
-  Const.bind(name);
+  rejectServerArgs(rest);
   const state = readState();
   if (!state) {
-    console.log(`agent "${name}" is not running`);
+    console.log('server is not running');
     return;
   }
 
@@ -465,56 +440,33 @@ async function handleServerStop(rest: string[]): Promise<void> {
   }
 
   if (await waitForExit(state.pid, 3_000)) {
-    console.log(`stopped "${name}"`);
+    console.log('stopped server');
     return;
   }
   try { process.kill(state.pid, 'SIGTERM'); } catch { /* already gone */ }
 
   if (await waitForExit(state.pid, 3_000)) {
-    console.log(`stopped "${name}"`);
+    console.log('stopped server');
     return;
   }
   try { process.kill(state.pid, 'SIGKILL'); } catch { /* ignore */ }
-  console.log(`force-killed "${name}"`);
-}
-
-async function handleServerList(): Promise<void> {
-  const names = await listAgentNames();
-  const rows: Array<{ name: string; state: AgentState | null }> = [];
-  for (const name of names) rows.push({ name, state: await readStateFor(name) });
-  if (rows.length === 0) {
-    console.log('NAME  PID  PORT  STARTED  STATUS');
-    return;
-  }
-  console.log('NAME  PID  PORT  STARTED  STATUS');
-  for (const row of rows) {
-    const state = row.state;
-    console.log([
-      row.name,
-      state?.pid ?? '-',
-      state?.port ?? '-',
-      state?.startedAt ?? '-',
-      state ? 'running' : 'stopped',
-    ].join('  '));
-  }
+  console.log('force-killed server');
 }
 
 async function handleServerStatus(rest: string[]): Promise<void> {
-  const { name } = parseAgentArgs(rest);
-  Const.bind(name);
+  rejectServerArgs(rest);
   const state = readState();
-  console.log(JSON.stringify(state ?? { name, status: 'stopped' }, null, 2));
+  console.log(JSON.stringify(state ?? { status: 'stopped' }, null, 2));
 }
 
 async function handleServerLogs(rest: string[]): Promise<void> {
   const useErr = rest.includes('--err');
-  const { name } = parseAgentArgs(rest.filter((token) => token !== '--err'));
-  Const.bind(name);
+  rejectServerArgs(rest.filter((token) => token !== '--err'));
   const file = useErr ? Const.errPath : Const.logPath;
   try {
     process.stdout.write(await fsp.readFile(file, 'utf8'));
   } catch {
-    fail(`no logs found for agent "${name}"`);
+    fail('no logs found for server');
   }
 }
 
@@ -524,6 +476,7 @@ function authHeader(): Record<string, string> | undefined {
 }
 
 async function handleWhatsapp(sub: string | undefined, rest: string[]): Promise<void> {
+  rejectNameArgs(rest);
   switch (sub) {
     case 'status': {
       const out = await request('GET', '/whatsapp/status');
@@ -591,6 +544,7 @@ async function handleWhatsapp(sub: string | undefined, rest: string[]): Promise<
 }
 
 async function handleSlack(sub: string | undefined, rest: string[]): Promise<void> {
+  rejectNameArgs(rest);
   switch (sub) {
     case 'status': {
       const out = await request('GET', '/slack/status');
@@ -653,6 +607,7 @@ async function handleSlack(sub: string | undefined, rest: string[]): Promise<voi
 }
 
 async function handleDiscord(sub: string | undefined, rest: string[]): Promise<void> {
+  rejectNameArgs(rest);
   switch (sub) {
     case 'status': {
       const out = await request('GET', '/discord/status');

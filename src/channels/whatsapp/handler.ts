@@ -5,10 +5,10 @@ import { FastyclawServer } from '@/server/index';
 import type { AppConfig, Run, Thread, WhatsappConfig } from '@/server/types';
 import { closeTerminal } from '@/agent/sessions/terminal';
 import { closeBrowserSession } from '@/agent/sessions/browser';
-import { WhatsappStream } from '@/whatsapp/stream';
-import type { SubmoduleFastyclawWhatsappSock } from '@/whatsapp/sock';
-import type { SubmoduleFastyclawWhatsappChats } from '@/whatsapp/chats';
-import type { ChatMeta, WhatsappChatKind } from '@/whatsapp/types';
+import { WhatsappStream } from '@/channels/whatsapp/stream';
+import type { SubmoduleFastyclawWhatsappSock } from '@/channels/whatsapp/sock';
+import type { SubmoduleFastyclawWhatsappChats } from '@/channels/whatsapp/chats';
+import type { ChatMeta, WhatsappChatKind } from '@/channels/whatsapp/types';
 
 export class SubmoduleFastyclawWhatsappHandler {
   public constructor(

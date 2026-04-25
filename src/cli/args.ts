@@ -1,5 +1,4 @@
-export interface AgentArgs {
-  name: string;
+export interface ServerArgs {
   port?: number;
 }
 
@@ -11,31 +10,24 @@ export function printHeader(message: string): void {
   console.log(`== ${message}`);
 }
 
-export function parseAgentArgs(rest: string[]): AgentArgs {
-  let name: string | undefined;
+export function parseServerArgs(rest: string[]): ServerArgs {
   let port: number | undefined;
 
   for (let i = 0; i < rest.length; i++) {
     const token = rest[i];
     if (token === '--name' || token === '-n') {
-      name = requireValue(token, rest[++i]);
-      continue;
+      fail(`${token} is no longer supported`);
     }
     if (token === '--port' || token === '-p') {
       port = Number(requireValue(token, rest[++i]));
       continue;
     }
     if (token.startsWith('-')) fail(`unknown flag: ${token}`);
-    if (name === undefined) {
-      name = token;
-      continue;
-    }
     fail(`unexpected positional: ${token}`);
   }
 
   if (port !== undefined && (!Number.isInteger(port) || port < 1 || port > 65535)) fail('invalid port');
-  if (name !== undefined && !/^[a-zA-Z0-9._-]+$/.test(name)) fail('invalid agent name');
-  return { name: name ?? process.env.FASTYCLAW_AGENT_NAME ?? 'fastyclaw', port };
+  return { port };
 }
 
 function requireValue(flag: string, value: string | undefined): string {

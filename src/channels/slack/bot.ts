@@ -1,6 +1,6 @@
 import slackBolt from '@slack/bolt';
 import type { App as SlackApp } from '@slack/bolt';
-import type { SlackEventHandler, SlackIncomingEvent } from '@/slack/types';
+import type { SlackEventHandler, SlackIncomingEvent } from '@/channels/slack/types';
 
 const { App } = slackBolt;
 

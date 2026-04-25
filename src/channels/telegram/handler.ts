@@ -5,10 +5,10 @@ import { FastyclawServer } from '@/server/index';
 import type { AppConfig, Run, Thread, TelegramConfig } from '@/server/types';
 import { closeTerminal } from '@/agent/sessions/terminal';
 import { closeBrowserSession } from '@/agent/sessions/browser';
-import { TelegramStream } from '@/telegram/stream';
-import type { SubmoduleFastyclawTelegramBot } from '@/telegram/bot';
-import type { SubmoduleFastyclawTelegramChats } from '@/telegram/chats';
-import type { ChatKind, ChatMeta } from '@/telegram/types';
+import { TelegramStream } from '@/channels/telegram/stream';
+import type { SubmoduleFastyclawTelegramBot } from '@/channels/telegram/bot';
+import type { SubmoduleFastyclawTelegramChats } from '@/channels/telegram/chats';
+import type { ChatKind, ChatMeta } from '@/channels/telegram/types';
 
 export class SubmoduleFastyclawTelegramHandler {
   public constructor(

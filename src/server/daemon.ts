@@ -1,13 +1,9 @@
 import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 import net from 'node:net';
-import os from 'node:os';
-import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { Const } from '@/config/index';
 
-export interface AgentState {
-  name: string;
+export interface ServerState {
   pid: number;
   port: number;
   host: string;
@@ -15,8 +11,8 @@ export interface AgentState {
   version: string;
 }
 
-export function spawnDaemon(args: { name: string; port?: number }): { pid: number } {
-  fs.mkdirSync(Const.agentDir, { recursive: true });
+export function spawnDaemon(args: { port?: number }): { pid: number } {
+  fs.mkdirSync(Const.fastyclawDir, { recursive: true });
   const out = fs.openSync(Const.logPath, 'a');
   const err = fs.openSync(Const.errPath, 'a');
   const child = spawn(process.execPath, [process.argv[1], '__run-daemon'], {
@@ -25,8 +21,6 @@ export function spawnDaemon(args: { name: string; port?: number }): { pid: numbe
     stdio: ['ignore', out, err],
     env: {
       ...process.env,
-      FASTYCLAW_AGENT_NAME: args.name,
-      FASTYCLAW_AGENT_DIR: Const.agentDir,
       FASTYCLAW_PORT: args.port ? String(args.port) : '',
       FASTYCLAW_DAEMON: '1',
     },
@@ -48,9 +42,9 @@ export function pickFreePort(port: number): Promise<number> {
   });
 }
 
-export function readState(): AgentState | null {
+export function readState(): ServerState | null {
   try {
-    const state = JSON.parse(fs.readFileSync(Const.statePath, 'utf8')) as AgentState;
+    const state = JSON.parse(fs.readFileSync(Const.statePath, 'utf8')) as ServerState;
     if (!Number.isInteger(state.pid) || !Number.isInteger(state.port)) return null;
     if (!pidAlive(state.pid)) {
       removeStateFiles();
@@ -62,12 +56,7 @@ export function readState(): AgentState | null {
   }
 }
 
-export async function readStateFor(name: string): Promise<AgentState | null> {
-  Const.bind(name);
-  return readState();
-}
-
-export async function waitForState(timeoutMs: number): Promise<AgentState | null> {
+export async function waitForState(timeoutMs: number): Promise<ServerState | null> {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     const state = readState();
@@ -84,16 +73,6 @@ export async function waitForExit(pid: number, timeoutMs: number): Promise<boole
     await sleep(100);
   }
   return !pidAlive(pid);
-}
-
-export async function listAgentNames(): Promise<string[]> {
-  const agentsDir = path.join(os.homedir(), '.fastyclaw', 'agents');
-  try {
-    const entries = await fsp.readdir(agentsDir, { withFileTypes: true });
-    return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
-  } catch {
-    return [];
-  }
 }
 
 export function removeStateFiles(): void {

@@ -5,10 +5,10 @@ import { FastyclawServer } from '@/server/index';
 import type { AppConfig, DiscordConfig, Run, Thread } from '@/server/types';
 import { closeTerminal } from '@/agent/sessions/terminal';
 import { closeBrowserSession } from '@/agent/sessions/browser';
-import { DiscordStream } from '@/discord/stream';
-import type { SubmoduleFastyclawDiscordClient } from '@/discord/client';
-import type { SubmoduleFastyclawDiscordChats } from '@/discord/chats';
-import type { ChatMeta, DiscordChatKind } from '@/discord/types';
+import { DiscordStream } from '@/channels/discord/stream';
+import type { SubmoduleFastyclawDiscordClient } from '@/channels/discord/client';
+import type { SubmoduleFastyclawDiscordChats } from '@/channels/discord/chats';
+import type { ChatMeta, DiscordChatKind } from '@/channels/discord/types';
 
 export class SubmoduleFastyclawDiscordHandler {
   public constructor(

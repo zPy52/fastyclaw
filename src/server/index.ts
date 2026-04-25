@@ -5,10 +5,10 @@ import { AppConfigStore, Const } from '@/config/index';
 import { AgentSkills } from '@/skills/index';
 import { SubmoduleFastyclawServerRoutes } from '@/server/routes';
 import { SubmoduleFastyclawServerThreads } from '@/server/threads';
-import { FastyclawTelegram } from '@/telegram/index';
-import { FastyclawWhatsapp } from '@/whatsapp/index';
-import { FastyclawSlack } from '@/slack/index';
-import { FastyclawDiscord } from '@/discord/index';
+import { FastyclawTelegram } from '@/channels/telegram/index';
+import { FastyclawWhatsapp } from '@/channels/whatsapp/index';
+import { FastyclawSlack } from '@/channels/slack/index';
+import { FastyclawDiscord } from '@/channels/discord/index';
 import { bearerAuth } from '@/server/auth';
 import { pickFreePort, removeStateFiles } from '@/server/daemon';
 
@@ -18,7 +18,7 @@ export class FastyclawServer {
   public static routes: SubmoduleFastyclawServerRoutes;
 
   public static async start(port?: number): Promise<void> {
-    fs.mkdirSync(Const.agentDir, { recursive: true });
+    fs.mkdirSync(Const.fastyclawDir, { recursive: true });
     fs.writeFileSync(Const.pidPath, String(process.pid), { encoding: 'utf8', mode: 0o600 });
 
     let server: Server | undefined;
@@ -68,7 +68,6 @@ export class FastyclawServer {
     });
     Const.setPort(resolvedPort);
     fs.writeFileSync(Const.statePath, JSON.stringify({
-      name: Const.name,
       pid: process.pid,
       port: resolvedPort,
       host: Const.host,

@@ -1,17 +1,17 @@
 import fs from 'node:fs/promises';
 import { Const } from '@/config/index';
 import { FastyclawServer } from '@/server/index';
-import type { ChatMapEntry, ChatMeta, TelegramChatListItem } from '@/telegram/types';
+import type { ChatMapEntry, ChatMeta, SlackChatListItem } from '@/channels/slack/types';
 
 type ChatMap = Record<string, ChatMapEntry>;
 
-export class SubmoduleFastyclawTelegramChats {
+export class SubmoduleFastyclawSlackChats {
   private map: ChatMap = {};
   private loaded = false;
 
   public async load(): Promise<void> {
     try {
-      const raw = await fs.readFile(Const.telegramChatsPath, 'utf8');
+      const raw = await fs.readFile(Const.slackChatsPath, 'utf8');
       const parsed = JSON.parse(raw) as ChatMap;
       this.map = parsed && typeof parsed === 'object' ? parsed : {};
     } catch {
@@ -20,34 +20,32 @@ export class SubmoduleFastyclawTelegramChats {
     this.loaded = true;
   }
 
-  public async resolve(chatId: number, meta: ChatMeta): Promise<string> {
+  public async resolve(channelId: string, meta: ChatMeta): Promise<string> {
     if (!this.loaded) await this.load();
-    const key = String(chatId);
-    const existing = this.map[key];
+    const existing = this.map[channelId];
     if (existing) {
       if (existing.title !== meta.title || existing.kind !== meta.kind) {
-        this.map[key] = { ...existing, title: meta.title, kind: meta.kind };
+        this.map[channelId] = { ...existing, title: meta.title, kind: meta.kind };
         await this.persist();
       }
       return existing.threadId;
     }
     const thread = await FastyclawServer.threads.create();
-    this.map[key] = { threadId: thread.id, title: meta.title, kind: meta.kind };
+    this.map[channelId] = { threadId: thread.id, title: meta.title, kind: meta.kind };
     await this.persist();
     return thread.id;
   }
 
-  public async forget(chatId: number): Promise<void> {
+  public async forget(channelId: string): Promise<void> {
     if (!this.loaded) await this.load();
-    const key = String(chatId);
-    if (!(key in this.map)) return;
-    delete this.map[key];
+    if (!(channelId in this.map)) return;
+    delete this.map[channelId];
     await this.persist();
   }
 
-  public list(): TelegramChatListItem[] {
-    return Object.entries(this.map).map(([chatId, entry]) => ({
-      chatId: Number(chatId),
+  public list(): SlackChatListItem[] {
+    return Object.entries(this.map).map(([channelId, entry]) => ({
+      channelId,
       threadId: entry.threadId,
       title: entry.title,
       kind: entry.kind,
@@ -60,6 +58,6 @@ export class SubmoduleFastyclawTelegramChats {
 
   private async persist(): Promise<void> {
     await fs.mkdir(Const.fastyclawDir, { recursive: true });
-    await fs.writeFile(Const.telegramChatsPath, JSON.stringify(this.map), 'utf8');
+    await fs.writeFile(Const.slackChatsPath, JSON.stringify(this.map), 'utf8');
   }
 }

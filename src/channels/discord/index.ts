@@ -1,7 +1,7 @@
 import type { DiscordConfig } from '@/server/types';
-import { SubmoduleFastyclawDiscordChats } from '@/discord/chats';
-import { SubmoduleFastyclawDiscordClient } from '@/discord/client';
-import { SubmoduleFastyclawDiscordHandler } from '@/discord/handler';
+import { SubmoduleFastyclawDiscordChats } from '@/channels/discord/chats';
+import { SubmoduleFastyclawDiscordClient } from '@/channels/discord/client';
+import { SubmoduleFastyclawDiscordHandler } from '@/channels/discord/handler';
 
 export class FastyclawDiscord {
   public static readonly chats = new SubmoduleFastyclawDiscordChats();

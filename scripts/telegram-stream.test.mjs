@@ -14,7 +14,7 @@ test('telegram stream does not render tool calls into chat text', async () => {
     },
   };
 
-  const { TelegramStream } = await import('../dist/telegram/stream.js');
+  const { TelegramStream } = await import('../dist/channels/telegram/stream.js');
   const stream = new TelegramStream(bot, 123);
 
   await stream.init();

@@ -19,10 +19,10 @@ import type {
 } from '@/server/types';
 import type { AppConfigPatch, AppConfigStore } from '@/config/index';
 import type { SubmoduleFastyclawServerThreads } from '@/server/threads';
-import { FastyclawTelegram } from '@/telegram/index';
-import { FastyclawWhatsapp } from '@/whatsapp/index';
-import { FastyclawSlack } from '@/slack/index';
-import { FastyclawDiscord } from '@/discord/index';
+import { FastyclawTelegram } from '@/channels/telegram/index';
+import { FastyclawWhatsapp } from '@/channels/whatsapp/index';
+import { FastyclawSlack } from '@/channels/slack/index';
+import { FastyclawDiscord } from '@/channels/discord/index';
 import express, { type Express, type Request, type Response } from 'express';
 
 export class SubmoduleFastyclawServerRoutes {

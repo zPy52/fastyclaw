@@ -7,7 +7,7 @@ import {
 } from '@whiskeysockets/baileys';
 import qrcode from 'qrcode-terminal';
 import { Const } from '@/config/index';
-import type { WhatsappMessageHandler } from '@/whatsapp/types';
+import type { WhatsappMessageHandler } from '@/channels/whatsapp/types';
 
 interface BoomLike { output?: { statusCode?: number } }
 

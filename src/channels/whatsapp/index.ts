@@ -1,7 +1,7 @@
 import type { WhatsappConfig } from '@/server/types';
-import { SubmoduleFastyclawWhatsappChats } from '@/whatsapp/chats';
-import { SubmoduleFastyclawWhatsappSock } from '@/whatsapp/sock';
-import { SubmoduleFastyclawWhatsappHandler } from '@/whatsapp/handler';
+import { SubmoduleFastyclawWhatsappChats } from '@/channels/whatsapp/chats';
+import { SubmoduleFastyclawWhatsappSock } from '@/channels/whatsapp/sock';
+import { SubmoduleFastyclawWhatsappHandler } from '@/channels/whatsapp/handler';
 
 export class FastyclawWhatsapp {
   public static readonly chats = new SubmoduleFastyclawWhatsappChats();
