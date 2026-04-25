@@ -20,12 +20,14 @@ export class WhatsappStream extends SubmoduleFastyclawServerStream {
   public constructor(
     private readonly sock: WASocket,
     private readonly jid: string,
+    private readonly onSent?: (key: WAMessageKey) => void,
   ) {
     super();
   }
 
   public async init(): Promise<void> {
     const sent = await this.sock.sendMessage(this.jid, { text: '…' });
+    this.rememberSent(sent?.key);
     this.anchorKey = sent?.key ?? null;
     this.lastSentText = '…';
   }
@@ -110,6 +112,7 @@ export class WhatsappStream extends SubmoduleFastyclawServerStream {
       console.error(`[whatsapp] edit failed: ${message}; reopening anchor`);
       try {
         const sent = await this.sock.sendMessage(this.jid, { text });
+        this.rememberSent(sent?.key);
         this.anchorKey = sent?.key ?? null;
         this.lastSentText = text;
       } catch (err2) {
@@ -148,6 +151,7 @@ export class WhatsappStream extends SubmoduleFastyclawServerStream {
       }
       try {
         const sent = await this.sock.sendMessage(this.jid, { text: '…' });
+        this.rememberSent(sent?.key);
         this.anchorKey = sent?.key ?? null;
         this.lastSentText = '…';
         this.lastEditAt = Date.now();
@@ -160,36 +164,42 @@ export class WhatsappStream extends SubmoduleFastyclawServerStream {
 
   private async sendAttachment(file: SendFileEntry): Promise<void> {
     try {
+      let sent: { key?: WAMessageKey } | undefined;
       switch (file.kind) {
         case 'photo':
-          await this.sock.sendMessage(this.jid, { image: { url: file.path } });
-          return;
+          sent = await this.sock.sendMessage(this.jid, { image: { url: file.path } });
+          break;
         case 'video':
-          await this.sock.sendMessage(this.jid, { video: { url: file.path } });
-          return;
+          sent = await this.sock.sendMessage(this.jid, { video: { url: file.path } });
+          break;
         case 'audio':
-          await this.sock.sendMessage(this.jid, { audio: { url: file.path }, mimetype: file.mediaType });
-          return;
+          sent = await this.sock.sendMessage(this.jid, { audio: { url: file.path }, mimetype: file.mediaType });
+          break;
         case 'voice':
-          await this.sock.sendMessage(this.jid, {
+          sent = await this.sock.sendMessage(this.jid, {
             audio: { url: file.path },
             ptt: true,
             mimetype: 'audio/ogg; codecs=opus',
           });
-          return;
+          break;
         case 'document':
         default:
-          await this.sock.sendMessage(this.jid, {
+          sent = await this.sock.sendMessage(this.jid, {
             document: { url: file.path },
             fileName: path.basename(file.path),
             mimetype: file.mediaType,
           });
-          return;
+          break;
       }
+      this.rememberSent(sent?.key);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[whatsapp] send ${file.kind} (${file.path}) failed: ${message}`);
     }
+  }
+
+  private rememberSent(key: WAMessageKey | null | undefined): void {
+    if (key) this.onSent?.(key);
   }
 
   private render(): string {

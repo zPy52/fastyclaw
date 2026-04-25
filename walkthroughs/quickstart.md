@@ -330,7 +330,8 @@ curl -s http://127.0.0.1:5177/whatsapp/chats
 
 ### 4. Control who can talk to it
 
-By default, any chat can reach the agent. To whitelist specific WhatsApp jids:
+By default, WhatsApp only responds to messages you send in your own "You" chat
+or in groups from the paired account. To allow other specific WhatsApp jids:
 
 ```bash
 fastyclaw whatsapp allow 34612345678@s.whatsapp.net

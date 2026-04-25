@@ -3,7 +3,10 @@ import {
   DisconnectReason,
   fetchLatestBaileysVersion,
   makeWASocket,
+  proto,
   useMultiFileAuthState,
+  type WAMessage,
+  type WAMessageKey,
   type WASocket,
 } from '@whiskeysockets/baileys';
 import qrcode from 'qrcode-terminal';
@@ -11,6 +14,21 @@ import { Const } from '@/config/index';
 import type { WhatsappMessageHandler } from '@/channels/whatsapp/types';
 
 interface BoomLike { output?: { statusCode?: number } }
+
+export function recentWhatsappHistoryMessages(
+  messages: WAMessage[],
+  cutoffMs: number,
+  ownJids: readonly string[] = [],
+): WAMessage[] {
+  const cutoffSeconds = Math.floor(cutoffMs / 1000);
+  const own = new Set(ownJids.map(normalizeJid).filter(Boolean));
+  return messages.filter((message) => {
+    if (messageTimestampSeconds(message.messageTimestamp) < cutoffSeconds) return false;
+    if (own.size === 0) return true;
+    const jid = normalizeJid(message.key.remoteJid);
+    return Boolean(message.key.fromMe && jid && own.has(jid));
+  });
+}
 
 export class SubmoduleFastyclawWhatsappSock {
   private sock: WASocket | null = null;
@@ -23,6 +41,11 @@ export class SubmoduleFastyclawWhatsappSock {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private reconnectAttempts = 0;
   private lastError: string | null = null;
+  private ownLid: string | null = null;
+  private readonly outboundMessageIds = new Set<string>();
+  private readonly outboundMessageOrder: string[] = [];
+  private readonly seenMessageIds = new Set<string>();
+  private readonly seenMessageOrder: string[] = [];
 
   public isRunning(): boolean {
     return this.running;
@@ -35,13 +58,11 @@ export class SubmoduleFastyclawWhatsappSock {
   public ownJid(): string | null {
     const me = this.sock?.user?.id ?? null;
     if (!me) return null;
-    // Baileys exposes "xxxx:yy@s.whatsapp.net" — normalize to bare "xxxx@s.whatsapp.net".
-    const at = me.indexOf('@');
-    if (at < 0) return me;
-    const local = me.slice(0, at);
-    const domain = me.slice(at);
-    const bare = local.split(':')[0];
-    return `${bare}${domain}`;
+    return normalizeJid(me);
+  }
+
+  public isOwnJid(jid: string): boolean {
+    return this.ownJidCandidates().has(normalizeJid(jid));
   }
 
   public latestQr(): string | null {
@@ -54,6 +75,22 @@ export class SubmoduleFastyclawWhatsappSock {
 
   public error(): string | null {
     return this.lastError;
+  }
+
+  public rememberOutboundMessage(key: WAMessageKey | null | undefined): void {
+    const id = this.messageKeyId(key);
+    if (!id || this.outboundMessageIds.has(id)) return;
+    this.outboundMessageIds.add(id);
+    this.outboundMessageOrder.push(id);
+    while (this.outboundMessageOrder.length > 200) {
+      const old = this.outboundMessageOrder.shift();
+      if (old) this.outboundMessageIds.delete(old);
+    }
+  }
+
+  public isRememberedOutboundMessage(key: WAMessageKey | null | undefined): boolean {
+    const id = this.messageKeyId(key);
+    return id ? this.outboundMessageIds.has(id) : false;
   }
 
   public async start(onMessage: WhatsappMessageHandler): Promise<void> {
@@ -74,9 +111,17 @@ export class SubmoduleFastyclawWhatsappSock {
     this.clearReconnectTimer();
     await fs.mkdir(Const.whatsappAuthDir, { recursive: true });
     const { state, saveCreds } = await useMultiFileAuthState(Const.whatsappAuthDir);
+    this.ownLid = state.creds.me?.lid ? normalizeJid(state.creds.me.lid) : null;
     const { version, isLatest } = await fetchLatestBaileysVersion();
     console.log(`[whatsapp] using Baileys version ${version.join('.')} (${isLatest ? 'latest' : 'bundled fallback'})`);
-    const sock = makeWASocket({ auth: state, version, printQRInTerminal: false });
+    const historyCutoffMs = Date.now() - 5_000;
+    const sock = makeWASocket({
+      auth: state,
+      version,
+      printQRInTerminal: false,
+      maxMsgRetryCount: 0,
+      shouldSyncHistoryMessage: (msg) => msg.syncType === proto.HistorySync.HistorySyncType.RECENT,
+    });
     this.sock = sock;
     this.running = true;
     this.paired = Boolean(state.creds.registered);
@@ -120,11 +165,12 @@ export class SubmoduleFastyclawWhatsappSock {
     });
 
     sock.ev.on('messages.upsert', ({ messages }) => {
-      const handler = this.currentHandler;
-      if (!handler) return;
-      handler(messages).catch((err) => {
-        console.error(`[whatsapp] handler error: ${err instanceof Error ? err.message : String(err)}`);
-      });
+      this.dispatchMessages(messages);
+    });
+
+    sock.ev.on('messaging-history.set', ({ messages, syncType }) => {
+      if (syncType !== proto.HistorySync.HistorySyncType.RECENT) return;
+      this.dispatchMessages(recentWhatsappHistoryMessages(messages, historyCutoffMs, [...this.ownJidCandidates()]));
     });
   }
 
@@ -135,6 +181,9 @@ export class SubmoduleFastyclawWhatsappSock {
     this.sock = null;
     this.running = false;
     this.currentHandler = null;
+    this.ownLid = null;
+    this.seenMessageIds.clear();
+    this.seenMessageOrder.length = 0;
     if (sock) {
       try { sock.end(undefined); } catch { /* ignore */ }
     }
@@ -149,6 +198,11 @@ export class SubmoduleFastyclawWhatsappSock {
     this.paired = false;
     this.qr = null;
     this.currentHandler = null;
+    this.ownLid = null;
+    this.outboundMessageIds.clear();
+    this.outboundMessageOrder.length = 0;
+    this.seenMessageIds.clear();
+    this.seenMessageOrder.length = 0;
     if (sock) {
       try { await sock.logout(); } catch { /* ignore */ }
       try { sock.end(undefined); } catch { /* ignore */ }
@@ -181,4 +235,61 @@ export class SubmoduleFastyclawWhatsappSock {
     clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
   }
+
+  private dispatchMessages(messages: WAMessage[]): void {
+    if (messages.length === 0) return;
+    const handler = this.currentHandler;
+    if (!handler) return;
+    const fresh = messages.filter((message) => this.rememberSeenMessage(message.key));
+    if (fresh.length === 0) return;
+    handler(fresh).catch((err) => {
+      console.error(`[whatsapp] handler error: ${err instanceof Error ? err.message : String(err)}`);
+    });
+  }
+
+  private rememberSeenMessage(key: WAMessageKey | null | undefined): boolean {
+    const id = this.messageKeyId(key);
+    if (!id) return true;
+    if (this.seenMessageIds.has(id)) return false;
+    this.seenMessageIds.add(id);
+    this.seenMessageOrder.push(id);
+    while (this.seenMessageOrder.length > 500) {
+      const old = this.seenMessageOrder.shift();
+      if (old) this.seenMessageIds.delete(old);
+    }
+    return true;
+  }
+
+  private messageKeyId(key: WAMessageKey | null | undefined): string | null {
+    if (!key?.id || !key.remoteJid) return null;
+    return `${key.remoteJid}:${key.id}`;
+  }
+
+  private ownJidCandidates(): Set<string> {
+    const candidates = [
+      this.sock?.user?.id,
+      this.ownLid,
+      this.ownJid(),
+    ];
+    return new Set(candidates.map(normalizeJid).filter(Boolean));
+  }
+}
+
+function messageTimestampSeconds(value: WAMessage['messageTimestamp']): number {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'bigint') return Number(value);
+  if (typeof value === 'string') return Number(value) || 0;
+  if (value && typeof value === 'object' && 'toNumber' in value && typeof value.toNumber === 'function') {
+    return value.toNumber();
+  }
+  return 0;
+}
+
+function normalizeJid(jid: string | null | undefined): string {
+  if (!jid) return '';
+  const at = jid.indexOf('@');
+  if (at < 0) return jid;
+  const local = jid.slice(0, at);
+  const domain = jid.slice(at);
+  return `${local.split(':')[0]}${domain}`;
 }

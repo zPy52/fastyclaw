@@ -19,12 +19,12 @@ export class SubmoduleFastyclawWhatsappHandler {
   public handle = async (msgs: WAMessage[]): Promise<void> => {
     const cfg = FastyclawServer.config.get().whatsapp;
     for (const m of msgs) {
-      if (m.key.fromMe) continue;
       const jid = m.key.remoteJid;
       if (!jid || jid === 'status@broadcast') continue;
+      if (this.shouldIgnoreFromMe(m, jid)) continue;
       const text = this.extractText(m);
       if (!text) continue;
-      if (!this.isAllowed(jid, cfg)) continue;
+      if (!this.isAllowed(m, jid, cfg)) continue;
       if (!this.shouldRespond(m, text, cfg)) continue;
 
       const kind = this.chatKind(jid);
@@ -40,6 +40,13 @@ export class SubmoduleFastyclawWhatsappHandler {
     return jid.endsWith('@g.us') ? 'group' : 'private';
   }
 
+  private shouldIgnoreFromMe(m: WAMessage, jid: string): boolean {
+    if (!m.key.fromMe) return false;
+    if (this.sockModule.isRememberedOutboundMessage(m.key)) return true;
+    if (this.chatKind(jid) === 'group') return false;
+    return !this.sockModule.isOwnJid(jid);
+  }
+
   private extractText(m: WAMessage): string {
     const msg = m.message;
     if (!msg) return '';
@@ -49,14 +56,21 @@ export class SubmoduleFastyclawWhatsappHandler {
     return ext.trim();
   }
 
-  private isAllowed(jid: string, cfg: WhatsappConfig): boolean {
-    if (cfg.allowedJids.length === 0) return true;
+  private isAllowed(m: WAMessage, jid: string, cfg: WhatsappConfig): boolean {
+    if (cfg.allowedJids.length === 0) return this.isDefaultReachableMessage(m, jid);
     return cfg.allowedJids.includes(jid);
+  }
+
+  private isDefaultReachableMessage(m: WAMessage, jid: string): boolean {
+    if (!m.key.fromMe) return false;
+    if (this.chatKind(jid) === 'group') return true;
+    return this.sockModule.isOwnJid(jid);
   }
 
   private shouldRespond(m: WAMessage, text: string, cfg: WhatsappConfig): boolean {
     const kind = this.chatKind(m.key.remoteJid!);
     if (kind === 'private') return true;
+    if (cfg.allowedJids.length === 0 && m.key.fromMe) return true;
     if (cfg.groupTrigger === 'all') return true;
     if (text.startsWith('/ask')) return true;
     const own = this.sockModule.ownJid();
@@ -90,7 +104,7 @@ export class SubmoduleFastyclawWhatsappHandler {
     if (!sock || !userText) return;
     FastyclawServer.threads.activate(thread);
     const snapshotConfig: AppConfig = FastyclawServer.config.get();
-    const stream = new WhatsappStream(sock, jid);
+    const stream = new WhatsappStream(sock, jid, (key) => this.sockModule.rememberOutboundMessage(key));
     try {
       await stream.init();
     } catch (err) {
