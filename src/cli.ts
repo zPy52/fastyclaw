@@ -416,7 +416,7 @@ async function handleStart(rest: string[]): Promise<void> {
   const state = await waitForState(5_000);
   if (!state) fail(`daemon did not start in time - see ${Const.errPath}`);
 
-  console.log(`fastyclaw server running on http://${state.host}:${state.port} (pid ${state.pid})`);
+  console.log(`fastyclaw server running on ${state.publicUrl ?? `http://${state.host}:${state.port}`} (pid ${state.pid})`);
   console.log(`  dir:  ${Const.fastyclawDir}`);
   console.log(`  logs: ${Const.logPath}`);
 }

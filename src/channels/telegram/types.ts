@@ -21,5 +21,6 @@ export interface TelegramChatListItem {
 export interface TelegramStatus {
   running: boolean;
   botUsername: string | null;
+  lastError: string | null;
   chatCount: number;
 }

@@ -7,6 +7,7 @@ export class SubmoduleFastyclawTelegramBot {
   private token: string | null = null;
   private running = false;
   private startPromise: Promise<void> | null = null;
+  private lastError: string | null = null;
 
   public isRunning(): boolean {
     return this.running;
@@ -24,9 +25,14 @@ export class SubmoduleFastyclawTelegramBot {
     return this.bot?.botInfo?.username ?? null;
   }
 
+  public error(): string | null {
+    return this.lastError;
+  }
+
   public async start(token: string, onMessage: TelegramMessageHandler): Promise<void> {
     if (this.running) return;
     const bot = new Bot(token);
+    this.lastError = null;
     bot.on('message:text', async (ctx) => {
       try {
         await onMessage(ctx);
@@ -36,14 +42,24 @@ export class SubmoduleFastyclawTelegramBot {
       }
     });
     bot.catch((err) => {
-      console.error(`[telegram] bot error: ${err.error instanceof Error ? err.error.message : String(err.error)}`);
+      const message = err.error instanceof Error ? err.error.message : String(err.error);
+      this.lastError = message;
+      console.error(`[telegram] bot error: ${message}`);
     });
     await bot.init();
     this.bot = bot;
     this.token = token;
     this.running = true;
     this.startPromise = bot.start({ drop_pending_updates: true }).catch((err) => {
-      console.error(`[telegram] poller exited with error: ${err instanceof Error ? err.message : String(err)}`);
+      const message = err instanceof Error ? err.message : String(err);
+      this.lastError = message;
+      if (this.bot === bot) {
+        this.running = false;
+        this.bot = null;
+        this.token = null;
+        this.startPromise = null;
+      }
+      console.error(`[telegram] poller exited with error: ${message}`);
     });
   }
 
@@ -55,6 +71,7 @@ export class SubmoduleFastyclawTelegramBot {
     this.bot = null;
     this.token = null;
     this.startPromise = null;
+    this.lastError = null;
     try {
       await bot.stop();
     } catch {

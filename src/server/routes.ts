@@ -346,6 +346,7 @@ export class SubmoduleFastyclawServerRoutes {
     res.json({
       running: FastyclawTelegram.bot.isRunning(),
       botUsername: FastyclawTelegram.bot.username(),
+      lastError: FastyclawTelegram.bot.error(),
       chatCount: FastyclawTelegram.chats.count(),
     });
   }
@@ -408,6 +409,7 @@ export class SubmoduleFastyclawServerRoutes {
       running: FastyclawWhatsapp.sock.isRunning(),
       paired: FastyclawWhatsapp.sock.isPaired(),
       ownJid: FastyclawWhatsapp.sock.ownJid(),
+      lastError: FastyclawWhatsapp.sock.error(),
       chatCount: FastyclawWhatsapp.chats.count(),
     });
   }

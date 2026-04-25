@@ -93,6 +93,7 @@ export interface WhatsappStatus {
   running: boolean;
   paired: boolean;
   ownJid: string | null;
+  lastError: string | null;
   chatCount: number;
 }
 
@@ -170,6 +171,7 @@ export interface TelegramChatListItem {
 export interface TelegramStatus {
   running: boolean;
   botUsername: string | null;
+  lastError: string | null;
   chatCount: number;
 }
 

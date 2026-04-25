@@ -7,6 +7,7 @@ export interface ServerState {
   pid: number;
   port: number;
   host: string;
+  publicUrl?: string;
   startedAt: string;
   version: string;
 }

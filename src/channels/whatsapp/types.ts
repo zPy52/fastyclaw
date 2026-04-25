@@ -24,6 +24,7 @@ export interface WhatsappStatus {
   running: boolean;
   paired: boolean;
   ownJid: string | null;
+  lastError: string | null;
   chatCount: number;
 }
 

@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import {
   DisconnectReason,
+  fetchLatestBaileysVersion,
   makeWASocket,
   useMultiFileAuthState,
   type WASocket,
@@ -19,6 +20,9 @@ export class SubmoduleFastyclawWhatsappSock {
   private starting: Promise<void> | null = null;
   private shouldReconnect = false;
   private currentHandler: WhatsappMessageHandler | null = null;
+  private reconnectTimer: NodeJS.Timeout | null = null;
+  private reconnectAttempts = 0;
+  private lastError: string | null = null;
 
   public isRunning(): boolean {
     return this.running;
@@ -48,10 +52,16 @@ export class SubmoduleFastyclawWhatsappSock {
     return this.paired;
   }
 
+  public error(): string | null {
+    return this.lastError;
+  }
+
   public async start(onMessage: WhatsappMessageHandler): Promise<void> {
     if (this.running || this.starting) return this.starting ?? undefined;
     this.currentHandler = onMessage;
     this.shouldReconnect = true;
+    this.lastError = null;
+    this.clearReconnectTimer();
     this.starting = this.connect();
     try {
       await this.starting;
@@ -61,9 +71,12 @@ export class SubmoduleFastyclawWhatsappSock {
   }
 
   private async connect(): Promise<void> {
+    this.clearReconnectTimer();
     await fs.mkdir(Const.whatsappAuthDir, { recursive: true });
     const { state, saveCreds } = await useMultiFileAuthState(Const.whatsappAuthDir);
-    const sock = makeWASocket({ auth: state, printQRInTerminal: false });
+    const { version, isLatest } = await fetchLatestBaileysVersion();
+    console.log(`[whatsapp] using Baileys version ${version.join('.')} (${isLatest ? 'latest' : 'bundled fallback'})`);
+    const sock = makeWASocket({ auth: state, version, printQRInTerminal: false });
     this.sock = sock;
     this.running = true;
     this.paired = Boolean(state.creds.registered);
@@ -83,10 +96,14 @@ export class SubmoduleFastyclawWhatsappSock {
       if (connection === 'open') {
         this.qr = null;
         this.paired = true;
+        this.reconnectAttempts = 0;
+        this.lastError = null;
         console.log(`[whatsapp] connected as ${this.ownJid() ?? 'unknown'}`);
       } else if (connection === 'close') {
         const statusCode = (lastDisconnect?.error as BoomLike | undefined)?.output?.statusCode;
         const loggedOut = statusCode === DisconnectReason.loggedOut;
+        const message = lastDisconnect?.error instanceof Error ? lastDisconnect.error.message : 'connection closed';
+        this.lastError = statusCode ? `${message} (${statusCode})` : message;
         this.running = false;
         this.sock = null;
         if (loggedOut) {
@@ -97,10 +114,7 @@ export class SubmoduleFastyclawWhatsappSock {
           return;
         }
         if (this.shouldReconnect) {
-          console.log('[whatsapp] connection closed; reconnecting…');
-          void this.connect().catch((err) => {
-            console.error(`[whatsapp] reconnect failed: ${err instanceof Error ? err.message : String(err)}`);
-          });
+          this.scheduleReconnect();
         }
       }
     });
@@ -116,6 +130,7 @@ export class SubmoduleFastyclawWhatsappSock {
 
   public async stop(): Promise<void> {
     this.shouldReconnect = false;
+    this.clearReconnectTimer();
     const sock = this.sock;
     this.sock = null;
     this.running = false;
@@ -127,6 +142,7 @@ export class SubmoduleFastyclawWhatsappSock {
 
   public async logout(): Promise<void> {
     this.shouldReconnect = false;
+    this.clearReconnectTimer();
     const sock = this.sock;
     this.sock = null;
     this.running = false;
@@ -138,5 +154,31 @@ export class SubmoduleFastyclawWhatsappSock {
       try { sock.end(undefined); } catch { /* ignore */ }
     }
     await fs.rm(Const.whatsappAuthDir, { recursive: true, force: true }).catch(() => { /* ignore */ });
+  }
+
+  private scheduleReconnect(): void {
+    if (this.reconnectTimer) return;
+    this.reconnectAttempts += 1;
+    const delay = Math.min(30_000, 1_000 * 2 ** Math.min(this.reconnectAttempts - 1, 5));
+    console.log(`[whatsapp] connection closed; reconnecting in ${Math.round(delay / 1000)}s`);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (!this.shouldReconnect || this.running || this.starting) return;
+      this.starting = this.connect();
+      this.starting.catch((err) => {
+        const message = err instanceof Error ? err.message : String(err);
+        this.lastError = message;
+        console.error(`[whatsapp] reconnect failed: ${message}`);
+        if (this.shouldReconnect) this.scheduleReconnect();
+      }).finally(() => {
+        this.starting = null;
+      });
+    }, delay);
+  }
+
+  private clearReconnectTimer(): void {
+    if (!this.reconnectTimer) return;
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
   }
 }

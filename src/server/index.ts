@@ -71,6 +71,7 @@ export class FastyclawServer {
       pid: process.pid,
       port: resolvedPort,
       host: Const.host,
+      publicUrl: Const.publicBaseUrl(),
       startedAt: new Date().toISOString(),
       version: packageVersion(),
     }, null, 2), { encoding: 'utf8', mode: 0o600 });
