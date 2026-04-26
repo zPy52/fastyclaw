@@ -1,8 +1,17 @@
 {
   "name": "fastyclaw-client",
   "version": "0.1.0",
-  "description": "Client SDK for the fastyclaw agent server — connect, configure, and stream responses over HTTP/SSE.",
+  "description": "Client SDK for the fastyclaw agent server to connect, configure, and stream responses",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zPy52/fastyclaw.git",
+    "directory": "client-sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/zPy52/fastyclaw/issues"
+  },
+  "homepage": "https://github.com/zPy52/fastyclaw/tree/main/client-sdk#readme",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
