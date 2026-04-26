@@ -1,6 +1,6 @@
 {
   "name": "fastyclaw-sdk",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Client SDK for the fastyclaw agent server to connect, configure, and stream responses",
   "type": "module",
   "repository": {
