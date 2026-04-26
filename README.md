@@ -1,7 +1,7 @@
 # fastyclaw
 
 <p align="center">
-  <img src="assets/white-logo.png" alt="fastyclaw logo" width="720" />
+  <img src="https://i.imgur.com/KnO9kl4.png" alt="fastyclaw logo" width="720" />
 </p>
 
 <p align="center">
