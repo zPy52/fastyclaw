@@ -4,6 +4,18 @@
   <img src="assets/white-logo.png" alt="fastyclaw logo" width="720" />
 </p>
 
+<p align="center">
+  <a href="https://www.npmjs.com/package/fastyclaw">
+    <img src="https://img.shields.io/npm/v/fastyclaw?style=flat-square" alt="npm version" />
+  </a>
+  <a href="https://github.com/zPy52/fastyclaw">
+    <img src="https://img.shields.io/badge/github-fastyclaw-181717?style=flat-square&logo=github" alt="GitHub repository" />
+  </a>
+  <a href="https://github.com/zPy52/fastyclaw/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/zPy52/fastyclaw?style=flat-square" alt="MIT license" />
+  </a>
+</p>
+
 A small, fast local AI agent server with HTTP/SSE transport, a full tool-call loop, and a proper TypeScript client SDK. Run it once, talk to it from anywhere — your terminal, a script, a WhatsApp message, a Telegram bot, a Slack channel, or a Discord server.
 
 ## Why not just use OpenClaw?

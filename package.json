@@ -1,8 +1,17 @@
 {
   "name": "fastyclaw",
-  "version": "0.1.0",
-  "description": "A small local agent harness with HTTP/SSE transport and an unbounded tool-call loop.",
+  "version": "0.1.1",
+  "description": "OpenClaw but efficient and with an SDK",
+  "license": "Apache-2.0",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zPy52/fastyclaw.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zPy52/fastyclaw/issues"
+  },
+  "homepage": "https://github.com/zPy52/fastyclaw#readme",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
