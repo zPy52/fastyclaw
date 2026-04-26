@@ -15,7 +15,7 @@ export class SubmoduleFastyclawServerThreads {
   public async create(): Promise<Thread> {
     await fs.mkdir(Const.threadsDir, { recursive: true });
     const id = crypto.randomUUID();
-    const thread: Thread = { id, messages: [] };
+    const thread: Thread = { id, messages: [], lastUsageTokens: null };
     await this.save(thread);
     return thread;
   }
@@ -25,8 +25,16 @@ export class SubmoduleFastyclawServerThreads {
     if (cached) return cached;
     try {
       const raw = await fs.readFile(this.fileFor(id), 'utf8');
-      const messages = JSON.parse(raw) as UIMessage[];
-      return { id, messages };
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        return { id, messages: parsed as UIMessage[], lastUsageTokens: null };
+      }
+      const obj = parsed as { messages?: UIMessage[]; lastUsageTokens?: number | null };
+      return {
+        id,
+        messages: Array.isArray(obj.messages) ? obj.messages : [],
+        lastUsageTokens: typeof obj.lastUsageTokens === 'number' ? obj.lastUsageTokens : null,
+      };
     } catch {
       return null;
     }
@@ -34,7 +42,8 @@ export class SubmoduleFastyclawServerThreads {
 
   public async save(thread: Thread): Promise<void> {
     await fs.mkdir(Const.threadsDir, { recursive: true });
-    await fs.writeFile(this.fileFor(thread.id), JSON.stringify(thread.messages), 'utf8');
+    const payload = { messages: thread.messages, lastUsageTokens: thread.lastUsageTokens ?? null };
+    await fs.writeFile(this.fileFor(thread.id), JSON.stringify(payload), 'utf8');
   }
 
   public async remove(id: string): Promise<boolean> {

@@ -5,11 +5,13 @@ import type { Run } from '@/server/types';
 import { AgentTools } from '@/agent/tools/index';
 import { SubmoduleAgentRuntimePrompt } from '@/agent/prompt';
 import { SubmoduleAgentRuntimeProvider } from '@/agent/provider/index';
+import { SubmoduleAgentRuntimeCompaction } from '@/agent/compaction/index';
 
 export class SubmoduleAgentRuntimeLoop {
   public constructor(
     private readonly prompt: SubmoduleAgentRuntimePrompt,
     private readonly provider: SubmoduleAgentRuntimeProvider,
+    private readonly compaction: SubmoduleAgentRuntimeCompaction,
   ) {}
 
   public async run(
@@ -27,12 +29,38 @@ export class SubmoduleAgentRuntimeLoop {
     await onMessages(run.thread.messages);
 
     try {
+      const system = this.prompt.build(run);
+      const tools = AgentTools.all(run);
+      const toolSchemasJson = safeStringify(
+        Object.fromEntries(
+          Object.entries(tools).map(([name, t]) => [name, (t as { inputSchema?: unknown }).inputSchema ?? null]),
+        ),
+      );
+
+      const lastUsage = run.thread.lastUsageTokens ?? null;
+      try {
+        const compRes = await this.compaction.maybeRun(run, system, toolSchemasJson, lastUsage);
+        if (compRes) {
+          run.stream.write({
+            type: 'compaction',
+            ranAt: compRes.ranAt,
+            beforeTokens: compRes.beforeTokens,
+            afterTokens: compRes.afterTokens,
+            partsCompacted: compRes.partsCompacted,
+          });
+          await onMessages(run.thread.messages);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        run.stream.write({ type: 'error', message: `compaction failed: ${message}` });
+      }
+
       const model = await this.provider.model(run.config);
       const result = streamText({
         model,
-        system: this.prompt.build(run),
+        system,
         messages: await convertToModelMessages(run.thread.messages),
-        tools: AgentTools.all(run),
+        tools,
         stopWhen: stepCountIs(Number.MAX_SAFE_INTEGER),
         abortSignal: run.abort.signal,
         ...run.config.callOptions,
@@ -43,6 +71,12 @@ export class SubmoduleAgentRuntimeLoop {
         originalMessages: run.thread.messages,
         onFinish: async ({ messages }) => {
           run.thread.messages = messages;
+          try {
+            const usage = await result.usage;
+            run.thread.lastUsageTokens = usage?.totalTokens ?? null;
+          } catch {
+            run.thread.lastUsageTokens = null;
+          }
           await onMessages(run.thread.messages);
         },
       });
@@ -87,5 +121,13 @@ export class SubmoduleAgentRuntimeLoop {
     } finally {
       run.stream.end();
     }
+  }
+}
+
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? '';
+  } catch {
+    return '';
   }
 }

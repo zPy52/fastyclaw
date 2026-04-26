@@ -6,6 +6,7 @@ export type ServerEvent =
   | { type: 'text-delta'; delta: string }
   | { type: 'tool-call'; toolCallId: string; name: string; input: unknown }
   | { type: 'tool-result'; toolCallId: string; output: unknown }
+  | { type: 'compaction'; ranAt: number; beforeTokens: number; afterTokens: number; partsCompacted: number }
   | { type: 'error'; message: string }
   | { type: 'done' };
 
@@ -97,6 +98,16 @@ export interface DiscordConfig {
   groupTrigger: DiscordGroupTrigger;
 }
 
+export interface CompactionConfig {
+  enabled: boolean;
+  triggerRatio: number;
+  targetRatio: number;
+  recentMessages: number;
+  textPartMaxTokens: number;
+  summaryModel: string | null;
+  archiveOriginals: boolean;
+}
+
 export interface AppConfig {
   authToken: string | null;
   model: string;
@@ -108,11 +119,13 @@ export interface AppConfig {
   whatsapp: WhatsappConfig;
   slack: SlackConfig;
   discord: DiscordConfig;
+  compaction: CompactionConfig;
 }
 
 export interface Thread {
   id: string;
   messages: UIMessage[];
+  lastUsageTokens?: number | null;
 }
 
 export interface Run {

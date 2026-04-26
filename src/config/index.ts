@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import type {
   AppConfig,
   CallOptions,
+  CompactionConfig,
   DiscordConfig,
   DiscordGroupTrigger,
   ProviderConfig,
@@ -47,6 +48,16 @@ const DEFAULT_DISCORD: DiscordConfig = {
   groupTrigger: 'mention',
 };
 
+const DEFAULT_COMPACTION: CompactionConfig = {
+  enabled: true,
+  triggerRatio: 0.75,
+  targetRatio: 0.45,
+  recentMessages: 6,
+  textPartMaxTokens: 1500,
+  summaryModel: null,
+  archiveOriginals: true,
+};
+
 export interface AppConfigPatch {
   authToken?: string | null;
   model?: string;
@@ -58,6 +69,7 @@ export interface AppConfigPatch {
   whatsapp?: Partial<WhatsappConfig>;
   slack?: Partial<SlackConfig>;
   discord?: Partial<DiscordConfig>;
+  compaction?: Partial<CompactionConfig>;
 }
 
 export class Const {
@@ -79,6 +91,8 @@ export class Const {
   public static readonly discordChatsPath: string = path.join(ROOT_DIR, 'discord-chats.json');
   public static readonly automationsPath: string = path.join(ROOT_DIR, 'automations.json');
   public static readonly automationsDir: string = path.join(ROOT_DIR, 'automations');
+  public static readonly archiveDir: string = path.join(ROOT_DIR, 'threads-archive');
+  public static readonly defaultCompaction: CompactionConfig = DEFAULT_COMPACTION;
   public static browserProfileDir: string =
     process.env.FASTYCLAW_BROWSER_PROFILE ?? path.join(ROOT_DIR, 'browser-profile');
   public static readonly pidPath: string = path.join(ROOT_DIR, 'server.pid');
@@ -140,6 +154,7 @@ export class AppConfigStore {
       whatsapp: { ...DEFAULT_WHATSAPP },
       slack: { ...DEFAULT_SLACK },
       discord: { ...DEFAULT_DISCORD },
+      compaction: { ...DEFAULT_COMPACTION },
     };
   }
 
@@ -163,8 +178,9 @@ export class AppConfigStore {
     const whatsapp = mergeWhatsapp(DEFAULT_WHATSAPP, raw.whatsapp as Partial<WhatsappConfig> | undefined);
     const slack = mergeSlack(DEFAULT_SLACK, raw.slack as Partial<SlackConfig> | undefined);
     const discord = mergeDiscord(DEFAULT_DISCORD, raw.discord as Partial<DiscordConfig> | undefined);
+    const compaction = mergeCompaction(DEFAULT_COMPACTION, raw.compaction as Partial<CompactionConfig> | undefined);
 
-    return { authToken, model, provider, providerOptions, callOptions, cwd, telegram, whatsapp, slack, discord };
+    return { authToken, model, provider, providerOptions, callOptions, cwd, telegram, whatsapp, slack, discord, compaction };
   }
 
   private write(config: AppConfig): void {
@@ -235,6 +251,9 @@ export class AppConfigStore {
     }
     if (patch.discord) {
       this.config.discord = mergeDiscord(this.config.discord, patch.discord);
+    }
+    if (patch.compaction) {
+      this.config.compaction = mergeCompaction(this.config.compaction, patch.compaction);
     }
     this.write(this.config);
     return this.get();
@@ -335,6 +354,23 @@ function mergeSlack(base: SlackConfig, patch: Partial<SlackConfig> | undefined):
   if (patch.channelTrigger === 'mention' || patch.channelTrigger === 'all') {
     merged.channelTrigger = patch.channelTrigger as SlackChannelTrigger;
   }
+  return merged;
+}
+
+function mergeCompaction(base: CompactionConfig, patch: Partial<CompactionConfig> | undefined): CompactionConfig {
+  const merged: CompactionConfig = { ...base };
+  if (!patch) return merged;
+  if (typeof patch.enabled === 'boolean') merged.enabled = patch.enabled;
+  if (typeof patch.triggerRatio === 'number' && Number.isFinite(patch.triggerRatio)) merged.triggerRatio = patch.triggerRatio;
+  if (typeof patch.targetRatio === 'number' && Number.isFinite(patch.targetRatio)) merged.targetRatio = patch.targetRatio;
+  if (typeof patch.recentMessages === 'number' && Number.isFinite(patch.recentMessages)) {
+    merged.recentMessages = Math.max(0, Math.floor(patch.recentMessages));
+  }
+  if (typeof patch.textPartMaxTokens === 'number' && Number.isFinite(patch.textPartMaxTokens)) {
+    merged.textPartMaxTokens = Math.max(0, Math.floor(patch.textPartMaxTokens));
+  }
+  if (patch.summaryModel === null || typeof patch.summaryModel === 'string') merged.summaryModel = patch.summaryModel;
+  if (typeof patch.archiveOriginals === 'boolean') merged.archiveOriginals = patch.archiveOriginals;
   return merged;
 }
 
