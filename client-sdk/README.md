@@ -1,11 +1,11 @@
-# fastyclaw-client
+# fastyclaw-sdk
 
-`fastyclaw-client` is the TypeScript SDK for a running fastyclaw server. It talks to the server over HTTP and SSE, so you can create threads, stream agent output, manage providers, and control channel integrations from any Node.js or browser app.
+`fastyclaw-sdk` is the TypeScript SDK for a running fastyclaw server. It talks to the server over HTTP and SSE, so you can create threads, stream agent output, manage providers, and control channel integrations from any Node.js or browser app.
 
 ## Install
 
 ```bash
-npm install fastyclaw-client
+npm install fastyclaw-sdk
 ```
 
 ## Requirements
@@ -19,7 +19,7 @@ The SDK defaults to `http://localhost:5177`.
 ## Quick Start
 
 ```ts
-import { FastyclawClient } from 'fastyclaw-client';
+import { FastyclawClient } from 'fastyclaw-sdk';
 
 const client = new FastyclawClient({
   baseUrl: 'http://localhost:5177',
@@ -63,7 +63,7 @@ import {
   FastyclawClientDiscord,
   FastyclawClientProviders,
   FastyclawClientAutomations,
-} from 'fastyclaw-client';
+} from 'fastyclaw-sdk';
 ```
 
 It also exports the main TypeScript types, including:

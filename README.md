@@ -23,7 +23,7 @@ A small, fast local AI agent server with HTTP/SSE transport, a full tool-call lo
 OpenClaw is the obvious alternative. It's also the reason fastyclaw exists. Here are the four problems it doesn't solve:
 
 **1. No SDK — you have to SSH your way to an API.**
-OpenClaw has no client SDK. If you want to drive it programmatically you end up shelling out from your code, scraping stdout, or SSHing into the box it runs on. fastyclaw ships a first-class TypeScript SDK (`fastyclaw-client`) that lets you connect, send messages, stream responses, manage providers, configure channels, and schedule automations — all from normal code.
+OpenClaw has no client SDK. If you want to drive it programmatically you end up shelling out from your code, scraping stdout, or SSHing into the box it runs on. fastyclaw ships a first-class TypeScript SDK (`fastyclaw-sdk`) that lets you connect, send messages, stream responses, manage providers, configure channels, and schedule automations — all from normal code.
 
 **2. It's painfully slow.**
 Even basic commands can take 4–6 seconds to even start processing. For messaging channels the lag can be so bad that responses don't land for a minute or more. fastyclaw is built on the Vercel AI SDK's `streamText`, so the first token hits the wire the moment the model starts generating. No polling, no batching, no mystery delay.
@@ -49,7 +49,7 @@ Or add it as a local dependency in a project that drives it via the SDK:
 
 ```bash
 npm install fastyclaw
-npm install fastyclaw-client   # TypeScript client SDK — separate package
+npm install fastyclaw-sdk   # TypeScript client SDK — separate package
 ```
 
 Node.js 18 or newer is required.
@@ -90,7 +90,7 @@ curl -N -X POST http://127.0.0.1:5177/messages \
 Or from the SDK:
 
 ```ts
-import { FastyclawClient } from 'fastyclaw-client';
+import { FastyclawClient } from 'fastyclaw-sdk';
 
 const client = new FastyclawClient();
 for await (const event of client.sendMessage('What files are in the current directory?')) {

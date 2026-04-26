@@ -1,17 +1,17 @@
 # Client SDK
 
-`fastyclaw-client` is a TypeScript SDK for talking to a running fastyclaw server over HTTP and SSE. Install it in any Node.js or browser project and drive the agent without touching a shell.
+`fastyclaw-sdk` is a TypeScript SDK for talking to a running fastyclaw server over HTTP and SSE. Install it in any Node.js or browser project and drive the agent without touching a shell.
 
 ## Install
 
 ```bash
-npm install fastyclaw-client
+npm install fastyclaw-sdk
 ```
 
 ## Connect
 
 ```ts
-import { FastyclawClient } from 'fastyclaw-client';
+import { FastyclawClient } from 'fastyclaw-sdk';
 
 // Defaults to http://localhost:5177
 const client = new FastyclawClient();
@@ -205,7 +205,7 @@ await client.discord.forgetChat(channelId);
 ## Automations
 
 ```ts
-import type { CreateAutomationInput } from 'fastyclaw-client';
+import type { CreateAutomationInput } from 'fastyclaw-sdk';
 
 // Create an automation
 const automation = await client.automations.create({
@@ -246,7 +246,7 @@ await client.automations.delete(automation.id);
 
 ## TypeScript types
 
-All types are exported from `fastyclaw-client`:
+All types are exported from `fastyclaw-sdk`:
 
 ```ts
 import type {
@@ -260,5 +260,5 @@ import type {
   WhatsappConfig,
   SlackConfig,
   DiscordConfig,
-} from 'fastyclaw-client';
+} from 'fastyclaw-sdk';
 ```

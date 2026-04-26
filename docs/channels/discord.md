@@ -32,7 +32,7 @@ curl -s -X POST http://127.0.0.1:5177/discord/start
 ### Client SDK
 
 ```ts
-import { FastyclawClient } from 'fastyclaw-client';
+import { FastyclawClient } from 'fastyclaw-sdk';
 
 const client = new FastyclawClient();
 await client.discord.setToken('Bot_token_here');

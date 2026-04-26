@@ -32,7 +32,7 @@ curl -s -X POST http://127.0.0.1:5177/telegram/start
 ### Client SDK
 
 ```ts
-import { FastyclawClient } from 'fastyclaw-client';
+import { FastyclawClient } from 'fastyclaw-sdk';
 
 const client = new FastyclawClient();
 await client.telegram.setToken('123456:ABCdef...');

@@ -1,5 +1,5 @@
 {
-  "name": "fastyclaw-client",
+  "name": "fastyclaw-sdk",
   "version": "0.1.0",
   "description": "Client SDK for the fastyclaw agent server to connect, configure, and stream responses",
   "type": "module",

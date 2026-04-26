@@ -69,7 +69,7 @@ The first event is always `{"type":"thread","threadId":"<uuid>"}`. After that yo
 ### Client SDK
 
 ```ts
-import { FastyclawClient } from 'fastyclaw-client';
+import { FastyclawClient } from 'fastyclaw-sdk';
 
 const client = new FastyclawClient();
 
@@ -104,7 +104,7 @@ curl -N -X POST http://127.0.0.1:5177/messages \
 The SDK remembers the last threadId automatically:
 
 ```ts
-import { FastyclawClient } from 'fastyclaw-client';
+import { FastyclawClient } from 'fastyclaw-sdk';
 
 const client = new FastyclawClient();
 
