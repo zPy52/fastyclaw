@@ -570,11 +570,13 @@ export function computer(run: Run) {
     inputSchema: z.object({
       action: Action,
       coordinate: z
-        .tuple([z.number().int(), z.number().int()])
+        .array(z.number().int())
+        .length(2)
         .optional()
         .describe('[x, y] in screen pixels. Required for left/right/middle/double/triple_click, mouse_move, scroll.'),
       coordinate_to: z
-        .tuple([z.number().int(), z.number().int()])
+        .array(z.number().int())
+        .length(2)
         .optional()
         .describe('[x, y] target for `drag` (with `coordinate` as the start).'),
       text: z.string().optional().describe('Text to type for action=type, app name for open_application, or clipboard contents for write_clipboard.'),
