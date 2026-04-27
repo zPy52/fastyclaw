@@ -1,6 +1,7 @@
 import { sleep } from '@/agent/tools/sleep';
 import type { Run } from '@/server/types';
 import { browser } from '@/agent/tools/browser';
+import { computer } from '@/agent/tools/computer';
 import { editFile } from '@/agent/tools/edit-file';
 import { readFile } from '@/agent/tools/read-file';
 import { runShell } from '@/agent/tools/run-shell';
@@ -25,6 +26,7 @@ export class AgentTools {
       sleep: sleep(run),
       check_shell: checkShell(run),
       browser: browser(run),
+      computer: computer(run),
       see_image: seeImage(run),
       screenshot: screenshot(run),
       send_files: sendFiles(run),

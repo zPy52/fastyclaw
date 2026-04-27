@@ -117,49 +117,51 @@ async function captureWindows(filePath: string): Promise<void> {
   await execa('powershell', ['-NoProfile', '-Command', script]);
 }
 
+export async function captureScreenshot(run: Run): Promise<ScreenshotResult> {
+  const platform = process.platform;
+  const gui = detectGui();
+  if (!gui.hasGui) {
+    return {
+      status: 'no-gui',
+      platform,
+      message: gui.reason ?? 'No GUI available on this host.',
+    };
+  }
+
+  const outDir = browserDownloadDir(run);
+  await fs.mkdir(outDir, { recursive: true });
+  const filePath = path.join(outDir, `desktop-${Date.now()}.png`);
+
+  try {
+    if (platform === 'darwin') await captureDarwin(filePath);
+    else if (platform === 'linux') await captureLinux(filePath);
+    else if (platform === 'win32') await captureWindows(filePath);
+    else throw new Error(`Unsupported platform: ${platform}`);
+    await resize(filePath, platform);
+  } catch (err) {
+    return {
+      status: 'error',
+      platform,
+      message: (err as Error).message,
+    };
+  }
+
+  const data = await fs.readFile(filePath);
+  return {
+    status: 'ok',
+    platform,
+    path: filePath,
+    data: data.toString('base64'),
+    mediaType: 'image/png',
+  };
+}
+
 export function screenshot(run: Run) {
   return tool({
     description:
       'Capture a screenshot of the user\'s desktop screen (not a browser tab). If running on a headless server/VM without a GUI, returns status="no-gui" with an explanation instead of an image. Uses screencapture on macOS, grim/scrot/gnome-screenshot on Linux, and PowerShell on Windows.',
     inputSchema: z.object({}),
-    execute: async (): Promise<ScreenshotResult> => {
-      const platform = process.platform;
-      const gui = detectGui();
-      if (!gui.hasGui) {
-        return {
-          status: 'no-gui',
-          platform,
-          message: gui.reason ?? 'No GUI available on this host.',
-        };
-      }
-
-      const outDir = browserDownloadDir(run);
-      await fs.mkdir(outDir, { recursive: true });
-      const filePath = path.join(outDir, `desktop-${Date.now()}.png`);
-
-      try {
-        if (platform === 'darwin') await captureDarwin(filePath);
-        else if (platform === 'linux') await captureLinux(filePath);
-        else if (platform === 'win32') await captureWindows(filePath);
-        else throw new Error(`Unsupported platform: ${platform}`);
-        await resize(filePath, platform);
-      } catch (err) {
-        return {
-          status: 'error',
-          platform,
-          message: (err as Error).message,
-        };
-      }
-
-      const data = await fs.readFile(filePath);
-      return {
-        status: 'ok',
-        platform,
-        path: filePath,
-        data: data.toString('base64'),
-        mediaType: 'image/png',
-      };
-    },
+    execute: (): Promise<ScreenshotResult> => captureScreenshot(run),
     toModelOutput({ output }) {
       const res = output as ScreenshotResult;
       if (res.status === 'ok') {
